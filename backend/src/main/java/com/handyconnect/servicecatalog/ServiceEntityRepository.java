@@ -1,0 +1,14 @@
+package com.handyconnect.servicecatalog;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ServiceEntityRepository extends JpaRepository<ServiceEntity, Long> {
+    Optional<ServiceEntity> findByCode(String code);
+    List<ServiceEntity> findByIsActiveTrue();
+    List<ServiceEntity> findByCategoryIdAndIsActiveTrue(Long categoryId);
+}

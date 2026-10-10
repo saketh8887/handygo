@@ -1,0 +1,94 @@
+:root {
+  --primary-color: #0284c7;
+  --primary-hover: #0369a1;
+  --secondary-color: #64748b;
+  --dark-color: #0f172a;
+  --light-bg: #f8fafc;
+  --border-color: #e2e8f0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--light-bg);
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-gradient {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%);
+}
+
+.card {
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+}
+
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+.btn-primary {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: #0369a1;
+  border-color: #0369a1;
+}
+
+.table th {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  background-color: #f8fafc;
+}
+
+.metric-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-tabs .nav-link {
+  font-weight: 500;
+  color: #64748b;
+  border: none;
+  padding: 0.75rem 1.25rem;
+}
+
+.nav-tabs .nav-link.active {
+  color: #0284c7;
+  border-bottom: 2px solid #0284c7;
+  background: transparent;
+}
