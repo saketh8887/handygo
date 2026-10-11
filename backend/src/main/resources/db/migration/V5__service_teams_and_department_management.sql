@@ -45,9 +45,8 @@ CREATE TABLE IF NOT EXISTS handyman_teams (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. LINK SERVICES TABLE TO SERVICE TEAMS
-ALTER TABLE services
-    ADD COLUMN team_id BIGINT NULL,
-    ADD CONSTRAINT fk_service_team FOREIGN KEY (team_id) REFERENCES service_teams(id) ON DELETE SET NULL;
+ALTER TABLE services ADD COLUMN team_id BIGINT NULL;
+ALTER TABLE services ADD CONSTRAINT fk_service_team FOREIGN KEY (team_id) REFERENCES service_teams(id) ON DELETE SET NULL;
 
 -- 5. SEED INITIAL 7 CORE SERVICE TEAMS
 INSERT INTO service_teams (id, name, code, description, icon_name, is_active) VALUES

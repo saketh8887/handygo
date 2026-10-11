@@ -7,9 +7,9 @@ spring:
   application:
     name: handyconnect-backend
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:handyconnect_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:Saketh8887}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://${DB_HOST:gateway01.ap-northeast-1.prod.aws.tidbcloud.com}:${DB_PORT:4000}/${DB_NAME:handyconnect_db}?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:25oub13Sjpn7RuG.root}
+    password: ${DB_PASSWORD:grR9kCzyj2aBRR12}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 15
