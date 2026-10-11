@@ -23,7 +23,25 @@ public class JwtTokenProvider {
     public JwtTokenProvider(
             @Value("${handyconnect.security.jwt.secret}") String jwtSecret,
             @Value("${handyconnect.security.jwt.expiration-ms}") long jwtExpirationMs) {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        String cleanSecret = (jwtSecret != null) ? jwtSecret.trim().replaceAll("\\s+", "") : "";
+        byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(cleanSecret);
+            if (keyBytes.length < 32) {
+                keyBytes = cleanSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
+            keyBytes = cleanSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        if (keyBytes.length < 32) {
+            try {
+                java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+                keyBytes = md.digest(keyBytes);
+            } catch (Exception ignored) {
+            }
+        }
+
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.jwtExpirationMs = jwtExpirationMs;
     }
