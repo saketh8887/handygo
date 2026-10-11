@@ -301,4 +301,30 @@ public class InventoryService {
                 "STOCK_TRANSFER", transferNumber, "Stock transfer in from " + fromLoc.getName(), user
         ));
     }
+
+    @Transactional
+    public void releaseReservationsForBooking(Long bookingId, Long userId) {
+        List<MaterialReservation> reservations = reservationRepository.findByBookingIdAndStatus(bookingId, "ACTIVE");
+        User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+        for (MaterialReservation res : reservations) {
+            InventoryBalance balance = balanceRepository.findByItemIdAndLocationIdWithLock(
+                    res.getItem().getId(), res.getLocation().getId()
+            ).orElse(null);
+            if (balance != null) {
+                BigDecimal newReserved = balance.getReservedQuantity().subtract(res.getReservedQuantity());
+                balance.setReservedQuantity(newReserved.compareTo(BigDecimal.ZERO) >= 0 ? newReserved : BigDecimal.ZERO);
+                balanceRepository.save(balance);
+            }
+            res.setStatus("CANCELLED");
+            reservationRepository.save(res);
+
+            InventoryMovement movement = new InventoryMovement(
+                    res.getItem(), res.getLocation(), "RELEASE", res.getReservedQuantity(),
+                    balance != null ? balance.getQuantityOnHand() : BigDecimal.ZERO,
+                    "BOOKING", "BK-" + bookingId,
+                    "Material reservation released due to cancellation of booking #" + bookingId, user
+            );
+            movementRepository.save(movement);
+        }
+    }
 }

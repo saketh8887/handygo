@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface HandymanProfileRepository extends JpaRepository<HandymanProfile, Long> {
     Optional<HandymanProfile> findByUserId(Long userId);
     List<HandymanProfile> findByVerificationStatus(String verificationStatus);
+    List<HandymanProfile> findByVerificationStatusAndActiveStatus(String verificationStatus, String activeStatus);
 }

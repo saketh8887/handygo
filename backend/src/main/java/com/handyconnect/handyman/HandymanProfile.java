@@ -4,6 +4,8 @@ import com.handyconnect.user.User;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "handyman_profiles")
@@ -22,6 +24,9 @@ public class HandymanProfile {
 
     @Column(columnDefinition = "TEXT")
     private String bio;
+
+    @Column(name = "profile_photo_url", length = 500)
+    private String profilePhotoUrl;
 
     @Column(name = "service_areas", length = 255)
     private String serviceAreas;
@@ -48,8 +53,32 @@ public class HandymanProfile {
     @Column(name = "rating_count")
     private Integer ratingCount = 0;
 
+    @Column(name = "max_active_workload", nullable = false)
+    private Integer maxActiveWorkload = 3;
+
+    @Column(name = "availability_status", nullable = false, length = 30)
+    private String availabilityStatus = "AVAILABLE"; // AVAILABLE, BUSY, ON_LEAVE, INACTIVE
+
+    @Column(name = "completed_job_count", nullable = false)
+    private Integer completedJobCount = 0;
+
     @Column(name = "active_status", length = 30)
     private String activeStatus = "ACTIVE"; // ACTIVE, INACTIVE
+
+    @OneToMany(mappedBy = "handyman", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HandymanSpecialization> specializations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "handyman", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HandymanCertification> certifications = new ArrayList<>();
+
+    @OneToMany(mappedBy = "handyman", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HandymanServiceArea> serviceAreaList = new ArrayList<>();
+
+    @OneToMany(mappedBy = "handyman", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HandymanSkill> skills = new ArrayList<>();
+
+    @OneToMany(mappedBy = "handyman", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HandymanAvailability> availabilities = new ArrayList<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -64,6 +93,9 @@ public class HandymanProfile {
         this.verificationStatus = "PENDING";
         this.ratingAvg = new BigDecimal("5.00");
         this.ratingCount = 0;
+        this.maxActiveWorkload = 3;
+        this.availabilityStatus = "AVAILABLE";
+        this.completedJobCount = 0;
         this.activeStatus = "ACTIVE";
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -75,6 +107,9 @@ public class HandymanProfile {
         if (updatedAt == null) updatedAt = LocalDateTime.now();
         if (verificationStatus == null) verificationStatus = "PENDING";
         if (activeStatus == null) activeStatus = "ACTIVE";
+        if (availabilityStatus == null) availabilityStatus = "AVAILABLE";
+        if (maxActiveWorkload == null) maxActiveWorkload = 3;
+        if (completedJobCount == null) completedJobCount = 0;
     }
 
     @PreUpdate
@@ -112,6 +147,14 @@ public class HandymanProfile {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public String getProfilePhotoUrl() {
+        return profilePhotoUrl;
+    }
+
+    public void setProfilePhotoUrl(String profilePhotoUrl) {
+        this.profilePhotoUrl = profilePhotoUrl;
     }
 
     public String getServiceAreas() {
@@ -178,12 +221,76 @@ public class HandymanProfile {
         this.ratingCount = ratingCount;
     }
 
+    public Integer getMaxActiveWorkload() {
+        return maxActiveWorkload;
+    }
+
+    public void setMaxActiveWorkload(Integer maxActiveWorkload) {
+        this.maxActiveWorkload = maxActiveWorkload;
+    }
+
+    public String getAvailabilityStatus() {
+        return availabilityStatus;
+    }
+
+    public void setAvailabilityStatus(String availabilityStatus) {
+        this.availabilityStatus = availabilityStatus;
+    }
+
+    public Integer getCompletedJobCount() {
+        return completedJobCount;
+    }
+
+    public void setCompletedJobCount(Integer completedJobCount) {
+        this.completedJobCount = completedJobCount;
+    }
+
     public String getActiveStatus() {
         return activeStatus;
     }
 
     public void setActiveStatus(String activeStatus) {
         this.activeStatus = activeStatus;
+    }
+
+    public List<HandymanSpecialization> getSpecializations() {
+        return specializations;
+    }
+
+    public void setSpecializations(List<HandymanSpecialization> specializations) {
+        this.specializations = specializations;
+    }
+
+    public List<HandymanCertification> getCertifications() {
+        return certifications;
+    }
+
+    public void setCertifications(List<HandymanCertification> certifications) {
+        this.certifications = certifications;
+    }
+
+    public List<HandymanServiceArea> getServiceAreaList() {
+        return serviceAreaList;
+    }
+
+    public void setServiceAreaList(List<HandymanServiceArea> serviceAreaList) {
+        this.serviceAreaList = serviceAreaList;
+    }
+
+    public List<HandymanSkill> getSkills() {
+        return skills;
+    }
+
+    public void setSkills(List<HandymanSkill> skills) {
+        this.skills = skills;
+    }
+
+    public List<HandymanAvailability> getAvailabilities() {
+        return availabilities;
+    }
+
+    public void setAvailabilities(List<HandymanAvailability> availabilities) {
+        this.availabilities = availabilities;
     }
 
     public LocalDateTime getCreatedAt() {

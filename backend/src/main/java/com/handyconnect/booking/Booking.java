@@ -71,6 +71,9 @@ public class Booking {
     @Column(name = "completion_photo_url", length = 500)
     private String completionPhotoUrl;
 
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<BookingAttachment> attachments = new java.util.ArrayList<>();
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -78,6 +81,19 @@ public class Booking {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     public Booking() {}
+
+    public java.util.List<BookingAttachment> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(java.util.List<BookingAttachment> attachments) {
+        this.attachments = attachments;
+    }
+
+    public void addAttachment(BookingAttachment attachment) {
+        attachments.add(attachment);
+        attachment.setBooking(this);
+    }
 
     @PrePersist
     protected void onCreate() {

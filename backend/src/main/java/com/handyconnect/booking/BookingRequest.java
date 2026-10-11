@@ -22,8 +22,26 @@ public class BookingRequest {
     private String problemDescription;
 
     private String photoUrl;
+    private java.util.List<Long> attachmentIds;
+    private Long selectedHandymanId;
 
     public BookingRequest() {}
+
+    public Long getSelectedHandymanId() {
+        return selectedHandymanId;
+    }
+
+    public void setSelectedHandymanId(Long selectedHandymanId) {
+        this.selectedHandymanId = selectedHandymanId;
+    }
+
+    public java.util.List<Long> getAttachmentIds() {
+        return attachmentIds;
+    }
+
+    public void setAttachmentIds(java.util.List<Long> attachmentIds) {
+        this.attachmentIds = attachmentIds;
+    }
 
     public Long getServiceId() {
         return serviceId;

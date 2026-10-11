@@ -6,8 +6,17 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+if (process.cwd() !== __dirname) {
+  try {
+    process.chdir(__dirname);
+  } catch (err) {
+    // fallback
+  }
+}
+
 export default defineConfig({
   root: __dirname,
+  cacheDir: path.resolve(__dirname, '.vite'),
   plugins: [react()],
   server: {
     port: 5173,

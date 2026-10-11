@@ -2,6 +2,7 @@ package com.handyconnect.handyman;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class HandymanDto {
@@ -12,6 +13,7 @@ public class HandymanDto {
     private String phone;
     private Integer experienceYears;
     private String bio;
+    private String profilePhotoUrl;
     private String serviceAreas;
     private String verificationStatus;
     private LocalDateTime verifiedAt;
@@ -19,9 +21,17 @@ public class HandymanDto {
     private BigDecimal serviceRadiusKm;
     private BigDecimal ratingAvg;
     private Integer ratingCount;
+    private Integer maxActiveWorkload = 3;
+    private String availabilityStatus = "AVAILABLE";
+    private Integer completedJobCount = 0;
     private String activeStatus;
-    private List<HandymanSkillDto> skills;
-    private List<HandymanAvailabilityDto> availabilities;
+    private List<HandymanSpecializationDto> specializations = new ArrayList<>();
+    private List<HandymanCertificationDto> certifications = new ArrayList<>();
+    private List<HandymanServiceAreaDto> serviceAreaList = new ArrayList<>();
+    private List<HandymanSkillDto> skills = new ArrayList<>();
+    private List<HandymanAvailabilityDto> availabilities = new ArrayList<>();
+    private List<com.handyconnect.team.HandymanTeamDto> teams = new ArrayList<>();
+    private String primaryTeamName;
 
     public HandymanDto() {}
 
@@ -81,6 +91,14 @@ public class HandymanDto {
         this.bio = bio;
     }
 
+    public String getProfilePhotoUrl() {
+        return profilePhotoUrl;
+    }
+
+    public void setProfilePhotoUrl(String profilePhotoUrl) {
+        this.profilePhotoUrl = profilePhotoUrl;
+    }
+
     public String getServiceAreas() {
         return serviceAreas;
     }
@@ -137,12 +155,60 @@ public class HandymanDto {
         this.ratingCount = ratingCount;
     }
 
+    public Integer getMaxActiveWorkload() {
+        return maxActiveWorkload;
+    }
+
+    public void setMaxActiveWorkload(Integer maxActiveWorkload) {
+        this.maxActiveWorkload = maxActiveWorkload;
+    }
+
+    public String getAvailabilityStatus() {
+        return availabilityStatus;
+    }
+
+    public void setAvailabilityStatus(String availabilityStatus) {
+        this.availabilityStatus = availabilityStatus;
+    }
+
+    public Integer getCompletedJobCount() {
+        return completedJobCount;
+    }
+
+    public void setCompletedJobCount(Integer completedJobCount) {
+        this.completedJobCount = completedJobCount;
+    }
+
     public String getActiveStatus() {
         return activeStatus;
     }
 
     public void setActiveStatus(String activeStatus) {
         this.activeStatus = activeStatus;
+    }
+
+    public List<HandymanSpecializationDto> getSpecializations() {
+        return specializations;
+    }
+
+    public void setSpecializations(List<HandymanSpecializationDto> specializations) {
+        this.specializations = specializations;
+    }
+
+    public List<HandymanCertificationDto> getCertifications() {
+        return certifications;
+    }
+
+    public void setCertifications(List<HandymanCertificationDto> certifications) {
+        this.certifications = certifications;
+    }
+
+    public List<HandymanServiceAreaDto> getServiceAreaList() {
+        return serviceAreaList;
+    }
+
+    public void setServiceAreaList(List<HandymanServiceAreaDto> serviceAreaList) {
+        this.serviceAreaList = serviceAreaList;
     }
 
     public List<HandymanSkillDto> getSkills() {
@@ -159,5 +225,21 @@ public class HandymanDto {
 
     public void setAvailabilities(List<HandymanAvailabilityDto> availabilities) {
         this.availabilities = availabilities;
+    }
+
+    public List<com.handyconnect.team.HandymanTeamDto> getTeams() {
+        return teams;
+    }
+
+    public void setTeams(List<com.handyconnect.team.HandymanTeamDto> teams) {
+        this.teams = teams;
+    }
+
+    public String getPrimaryTeamName() {
+        return primaryTeamName;
+    }
+
+    public void setPrimaryTeamName(String primaryTeamName) {
+        this.primaryTeamName = primaryTeamName;
     }
 }

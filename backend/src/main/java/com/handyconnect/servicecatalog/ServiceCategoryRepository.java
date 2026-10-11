@@ -9,5 +9,8 @@ import java.util.Optional;
 @Repository
 public interface ServiceCategoryRepository extends JpaRepository<ServiceCategory, Long> {
     Optional<ServiceCategory> findByCode(String code);
+    boolean existsByName(String name);
+    boolean existsByCode(String code);
     List<ServiceCategory> findByIsActiveTrueOrderByDisplayOrderAsc();
+    List<ServiceCategory> findAllByOrderByDisplayOrderAsc();
 }

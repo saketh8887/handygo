@@ -14,6 +14,7 @@ public class BookingDto {
     private Long serviceId;
     private String serviceName;
     private String serviceCategory;
+    private Long categoryId;
     private Long addressId;
     private String addressLine;
     private String addressCity;
@@ -32,11 +33,24 @@ public class BookingDto {
     private String completionPhotoUrl;
     private LocalDateTime createdAt;
 
+    // Service handling team
+    private Long serviceTeamId;
+    private String serviceTeamName;
+    private String serviceTeamCode;
+    private String serviceTeamIcon;
+
     // Assigned Handyman info if assigned
     private Long assignedHandymanId;
     private String assignedHandymanName;
     private String assignedHandymanPhone;
     private String assignmentStatus;
+    private BigDecimal assignedHandymanRating;
+    private String assignedHandymanSpecialization;
+    private String assignedHandymanPhoto;
+    private List<String> assignedHandymanSpecializations;
+    private String assignedHandymanPrimaryTeam;
+    private List<String> assignedHandymanTeams;
+    private List<String> requiredSkills;
 
     // Material list
     private List<BookingMaterialDto> materials;
@@ -44,7 +58,18 @@ public class BookingDto {
     // Status History
     private List<BookingStatusHistoryDto> history;
 
+    // Attached problem photos
+    private List<AttachmentDto> attachments;
+
     public BookingDto() {}
+
+    public List<AttachmentDto> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<AttachmentDto> attachments) {
+        this.attachments = attachments;
+    }
 
     public Long getId() {
         return id;
@@ -129,6 +154,14 @@ public class BookingDto {
 
     public void setServiceCategory(String serviceCategory) {
         this.serviceCategory = serviceCategory;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 
     public Long getAddressId() {
@@ -495,5 +528,93 @@ public class BookingDto {
         public void setTimestamp(LocalDateTime timestamp) {
             this.timestamp = timestamp;
         }
+    }
+
+    public BigDecimal getAssignedHandymanRating() {
+        return assignedHandymanRating;
+    }
+
+    public void setAssignedHandymanRating(BigDecimal assignedHandymanRating) {
+        this.assignedHandymanRating = assignedHandymanRating;
+    }
+
+    public String getAssignedHandymanSpecialization() {
+        return assignedHandymanSpecialization;
+    }
+
+    public void setAssignedHandymanSpecialization(String assignedHandymanSpecialization) {
+        this.assignedHandymanSpecialization = assignedHandymanSpecialization;
+    }
+
+    public String getAssignedHandymanPhoto() {
+        return assignedHandymanPhoto;
+    }
+
+    public void setAssignedHandymanPhoto(String assignedHandymanPhoto) {
+        this.assignedHandymanPhoto = assignedHandymanPhoto;
+    }
+
+    public List<String> getAssignedHandymanSpecializations() {
+        return assignedHandymanSpecializations;
+    }
+
+    public void setAssignedHandymanSpecializations(List<String> assignedHandymanSpecializations) {
+        this.assignedHandymanSpecializations = assignedHandymanSpecializations;
+    }
+
+    public List<String> getRequiredSkills() {
+        return requiredSkills;
+    }
+
+    public void setRequiredSkills(List<String> requiredSkills) {
+        this.requiredSkills = requiredSkills;
+    }
+
+    public Long getServiceTeamId() {
+        return serviceTeamId;
+    }
+
+    public void setServiceTeamId(Long serviceTeamId) {
+        this.serviceTeamId = serviceTeamId;
+    }
+
+    public String getServiceTeamName() {
+        return serviceTeamName;
+    }
+
+    public void setServiceTeamName(String serviceTeamName) {
+        this.serviceTeamName = serviceTeamName;
+    }
+
+    public String getServiceTeamCode() {
+        return serviceTeamCode;
+    }
+
+    public void setServiceTeamCode(String serviceTeamCode) {
+        this.serviceTeamCode = serviceTeamCode;
+    }
+
+    public String getServiceTeamIcon() {
+        return serviceTeamIcon;
+    }
+
+    public void setServiceTeamIcon(String serviceTeamIcon) {
+        this.serviceTeamIcon = serviceTeamIcon;
+    }
+
+    public String getAssignedHandymanPrimaryTeam() {
+        return assignedHandymanPrimaryTeam;
+    }
+
+    public void setAssignedHandymanPrimaryTeam(String assignedHandymanPrimaryTeam) {
+        this.assignedHandymanPrimaryTeam = assignedHandymanPrimaryTeam;
+    }
+
+    public List<String> getAssignedHandymanTeams() {
+        return assignedHandymanTeams;
+    }
+
+    public void setAssignedHandymanTeams(List<String> assignedHandymanTeams) {
+        this.assignedHandymanTeams = assignedHandymanTeams;
     }
 }

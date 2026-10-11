@@ -11,4 +11,6 @@ public interface ServiceEntityRepository extends JpaRepository<ServiceEntity, Lo
     Optional<ServiceEntity> findByCode(String code);
     List<ServiceEntity> findByIsActiveTrue();
     List<ServiceEntity> findByCategoryIdAndIsActiveTrue(Long categoryId);
+    List<ServiceEntity> findByCategoryId(Long categoryId);
+    long countByCategoryId(Long categoryId);
 }

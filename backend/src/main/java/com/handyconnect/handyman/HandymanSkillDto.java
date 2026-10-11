@@ -5,22 +5,32 @@ public class HandymanSkillDto {
     private Long handymanId;
     private Long categoryId;
     private String categoryName;
+    private Long skillId;
     private String skillName;
+    private String proficiencyLevel; // BEGINNER, INTERMEDIATE, EXPERT, MASTER
     private String certificationDetails;
     private Integer yearsExperience;
+    private Boolean isVerified;
 
     public HandymanSkillDto() {}
 
     public HandymanSkillDto(HandymanSkill s) {
-        this.id = s.getId();
-        if (s.getHandyman() != null) this.handymanId = s.getHandyman().getId();
-        if (s.getCategory() != null) {
-            this.categoryId = s.getCategory().getId();
-            this.categoryName = s.getCategory().getName();
+        if (s != null) {
+            this.id = s.getId();
+            if (s.getHandyman() != null) this.handymanId = s.getHandyman().getId();
+            if (s.getCategory() != null) {
+                this.categoryId = s.getCategory().getId();
+                this.categoryName = s.getCategory().getName();
+            }
+            if (s.getSkill() != null) {
+                this.skillId = s.getSkill().getId();
+            }
+            this.skillName = s.getSkillName();
+            this.proficiencyLevel = s.getProficiencyLevel();
+            this.certificationDetails = s.getCertificationDetails();
+            this.yearsExperience = s.getYearsExperience();
+            this.isVerified = s.getIsVerified();
         }
-        this.skillName = s.getSkillName();
-        this.certificationDetails = s.getCertificationDetails();
-        this.yearsExperience = s.getYearsExperience();
     }
 
     public Long getId() {
@@ -55,12 +65,28 @@ public class HandymanSkillDto {
         this.categoryName = categoryName;
     }
 
+    public Long getSkillId() {
+        return skillId;
+    }
+
+    public void setSkillId(Long skillId) {
+        this.skillId = skillId;
+    }
+
     public String getSkillName() {
         return skillName;
     }
 
     public void setSkillName(String skillName) {
         this.skillName = skillName;
+    }
+
+    public String getProficiencyLevel() {
+        return proficiencyLevel;
+    }
+
+    public void setProficiencyLevel(String proficiencyLevel) {
+        this.proficiencyLevel = proficiencyLevel;
     }
 
     public String getCertificationDetails() {
@@ -77,5 +103,13 @@ public class HandymanSkillDto {
 
     public void setYearsExperience(Integer yearsExperience) {
         this.yearsExperience = yearsExperience;
+    }
+
+    public Boolean getIsVerified() {
+        return isVerified;
+    }
+
+    public void setIsVerified(Boolean verified) {
+        isVerified = verified;
     }
 }

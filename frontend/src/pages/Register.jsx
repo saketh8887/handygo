@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, UserCheck, Wrench, Mail, Lock, Phone, MapPin, Briefcase, DollarSign, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserPlus, UserCheck, Wrench, Mail, Lock, Phone, MapPin, Briefcase, DollarSign, AlertCircle, CheckCircle2, Check } from 'lucide-react';
 
 export default function Register() {
   const [role, setRole] = useState('ROLE_CUSTOMER');
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryNames, setSelectedCategoryNames] = useState(['Plumbing Works']);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -21,6 +24,12 @@ export default function Register() {
     serviceAreas: 'Downtown, North Zone, Central Metro',
     bio: 'Professional certified technician with 5+ years of diagnostic and repair experience.',
   });
+
+  useEffect(() => {
+    api.get('/categories')
+      .then((res) => setCategories(res.data?.data || []))
+      .catch((err) => console.warn('Could not load categories for registration:', err));
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -272,6 +281,39 @@ export default function Register() {
                           onChange={handleChange}
                           required
                         />
+                      </div>
+
+                      <div className="col-12">
+                        <label className="form-label fw-semibold">Trade Specializations &amp; Service Categories</label>
+                        <div className="d-flex flex-wrap gap-2">
+                          {categories.map((cat) => {
+                            const isSelected = selectedCategoryNames.includes(cat.name);
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                className={`btn btn-sm px-3 py-1.5 rounded-pill transition-all ${
+                                  isSelected ? 'btn-primary text-white shadow-sm' : 'btn-light text-secondary border'
+                                }`}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    if (selectedCategoryNames.length > 1) {
+                                      setSelectedCategoryNames(selectedCategoryNames.filter((n) => n !== cat.name));
+                                    }
+                                  } else {
+                                    setSelectedCategoryNames([...selectedCategoryNames, cat.name]);
+                                  }
+                                }}
+                              >
+                                {isSelected && <Check size={13} className="me-1" />}
+                                {cat.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="form-text small text-muted mt-1">
+                          Select one or more specialized categories you are qualified to handle.
+                        </div>
                       </div>
                       <div className="col-12">
                         <label className="form-label fw-semibold">Service Coverage Areas</label>

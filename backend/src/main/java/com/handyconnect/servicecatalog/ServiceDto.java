@@ -15,7 +15,12 @@ public class ServiceDto {
     private Integer estimatedDurationMinutes;
     private String requiredSkills;
     private Boolean isActive;
+    private Long teamId;
+    private String teamName;
+    private String teamCode;
+    private String teamIcon;
     private List<ServiceMaterialDto> standardMaterials;
+    private List<ServiceRequiredSkillDto> requiredSkillsList;
 
     public ServiceDto() {}
 
@@ -25,6 +30,12 @@ public class ServiceDto {
             this.categoryId = entity.getCategory().getId();
             this.categoryName = entity.getCategory().getName();
             this.categoryCode = entity.getCategory().getCode();
+        }
+        if (entity.getTeam() != null) {
+            this.teamId = entity.getTeam().getId();
+            this.teamName = entity.getTeam().getName();
+            this.teamCode = entity.getTeam().getCode();
+            this.teamIcon = entity.getTeam().getIconName();
         }
         this.name = entity.getName();
         this.code = entity.getCode();
@@ -137,5 +148,45 @@ public class ServiceDto {
 
     public void setStandardMaterials(List<ServiceMaterialDto> standardMaterials) {
         this.standardMaterials = standardMaterials;
+    }
+
+    public List<ServiceRequiredSkillDto> getRequiredSkillsList() {
+        return requiredSkillsList;
+    }
+
+    public void setRequiredSkillsList(List<ServiceRequiredSkillDto> requiredSkillsList) {
+        this.requiredSkillsList = requiredSkillsList;
+    }
+
+    public Long getTeamId() {
+        return teamId;
+    }
+
+    public void setTeamId(Long teamId) {
+        this.teamId = teamId;
+    }
+
+    public String getTeamName() {
+        return teamName;
+    }
+
+    public void setTeamName(String teamName) {
+        this.teamName = teamName;
+    }
+
+    public String getTeamCode() {
+        return teamCode;
+    }
+
+    public void setTeamCode(String teamCode) {
+        this.teamCode = teamCode;
+    }
+
+    public String getTeamIcon() {
+        return teamIcon;
+    }
+
+    public void setTeamIcon(String teamIcon) {
+        this.teamIcon = teamIcon;
     }
 }

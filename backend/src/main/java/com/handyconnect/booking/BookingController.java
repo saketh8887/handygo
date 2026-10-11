@@ -10,7 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -35,32 +38,61 @@ public class BookingController {
     }
 
     @GetMapping
-    @Operation(summary = "Get bookings list (role-filtered)")
-    public ResponseEntity<ApiResponse<List<BookingDto>>> getBookings() {
+    @Operation(summary = "Get bookings list (role-filtered, with optional filters)")
+    public ResponseEntity<ApiResponse<List<BookingDto>>> getBookings(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long handymanId,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
         Long userId = SecurityUtils.getCurrentUserId();
-        return ResponseEntity.ok(ApiResponse.success(bookingService.getBookingsForUser(userId)));
+        return ResponseEntity.ok(ApiResponse.success(bookingService.getBookingsForUser(userId, categoryId, handymanId, status, fromDate, toDate)));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get booking details by ID")
-    public ResponseEntity<ApiResponse<BookingDto>> getBookingById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(bookingService.getBookingById(id)));
+    @Operation(summary = "Get booking details by numeric ID or reference")
+    public ResponseEntity<ApiResponse<BookingDto>> getBookingById(@PathVariable String id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.success(bookingService.getBookingByIdOrReference(id, userId)));
     }
 
     @GetMapping("/{id}/readiness")
     @Operation(summary = "Evaluate Job Readiness and Material Coordination for a booking")
-    public ResponseEntity<ApiResponse<JobReadinessEvaluation>> getReadiness(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(bookingService.evaluateBookingReadiness(id)));
+    public ResponseEntity<ApiResponse<JobReadinessEvaluation>> getReadiness(@PathVariable String id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(ApiResponse.success(bookingService.evaluateBookingReadinessByIdOrRef(id, userId)));
     }
 
     @PostMapping("/{id}/assign")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Admin assigns an eligible handyman to booking")
-    public ResponseEntity<ApiResponse<BookingDto>> assignHandyman(@PathVariable Long id, @RequestBody Map<String, Long> body) {
-        Long handymanId = body.get("handymanId");
+    @Operation(summary = "Admin assigns an eligible handyman to booking with optional override")
+    public ResponseEntity<ApiResponse<BookingDto>> assignHandyman(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Long handymanId = Long.valueOf(body.get("handymanId").toString());
+        boolean overrideRules = Boolean.parseBoolean(body.getOrDefault("overrideRules", "false").toString());
+        String overrideReason = body.getOrDefault("overrideReason", "").toString();
         Long adminId = SecurityUtils.getCurrentUserId();
-        BookingDto updated = bookingService.assignHandyman(id, handymanId, adminId);
+        BookingDto updated = bookingService.assignHandyman(id, handymanId, adminId, overrideRules, overrideReason);
         return ResponseEntity.ok(ApiResponse.success("Handyman assigned successfully", updated));
+    }
+
+    @GetMapping("/{id}/recommendations")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Get intelligent technician assignment recommendations and eligibility breakdown (Admin)")
+    public ResponseEntity<ApiResponse<List<com.handyconnect.logistics.HandymanRecommendation>>> getRecommendations(@PathVariable Long id) {
+        List<com.handyconnect.logistics.HandymanRecommendation> recommendations = bookingService.getAssignmentRecommendations(id);
+        return ResponseEntity.ok(ApiResponse.success("Assignment recommendations retrieved", recommendations));
+    }
+
+    @PostMapping("/{id}/reassign")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Reassign booking to a different qualified technician (Admin)")
+    public ResponseEntity<ApiResponse<BookingDto>> reassignHandyman(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Long handymanId = Long.valueOf(body.get("handymanId").toString());
+        String reason = body.getOrDefault("reason", "Administrative reassignment").toString();
+        Long adminId = SecurityUtils.getCurrentUserId();
+        BookingDto updated = bookingService.reassignHandyman(id, handymanId, adminId, reason);
+        return ResponseEntity.ok(ApiResponse.success("Technician reassigned successfully", updated));
     }
 
     @PostMapping("/{id}/respond")

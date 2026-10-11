@@ -57,6 +57,9 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/services/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/specializations/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/skills/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/teams/**").permitAll()
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         // Role-specific scopes

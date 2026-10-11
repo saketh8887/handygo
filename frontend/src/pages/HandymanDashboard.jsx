@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
+import { useToast } from '../context/ToastContext';
 import { 
   Wrench, Calendar, Clock, MapPin, DollarSign, Star, 
-  CheckCircle2, XCircle, AlertCircle, ArrowRight, Play, Eye
+  CheckCircle2, XCircle, AlertCircle, ArrowRight, Play, Eye,
+  ShieldCheck, Package, Navigation, Phone, ChevronRight, Users
 } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import Breadcrumb from '../components/Breadcrumb';
+import MetricCard from '../components/MetricCard';
+import Skeleton from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 
 export default function HandymanDashboard() {
+  const { showToast } = useToast();
   const [profile, setProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('PENDING_RESPONSE');
-  const [actionSuccess, setActionSuccess] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -36,6 +42,7 @@ export default function HandymanDashboard() {
     } catch (err) {
       console.error('Failed to load handyman data:', err);
       setError('Could not retrieve handyman appointments.');
+      showToast('Could not load appointments.', 'error');
     } finally {
       setLoading(false);
     }
@@ -48,11 +55,13 @@ export default function HandymanDashboard() {
         accept,
         rejectionReason: accept ? '' : 'Technician schedule conflict',
       });
-      setActionSuccess(accept ? 'Job accepted! You can now start execution.' : 'Job declined.');
+      showToast(accept ? 'Job accepted! You can now start execution.' : 'Job declined.', accept ? 'success' : 'info');
       fetchHandymanData();
     } catch (err) {
       console.error('Response failed:', err);
-      setError(err.response?.data?.message || 'Failed to update assignment.');
+      const msg = err.response?.data?.message || 'Failed to update assignment.';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
@@ -61,256 +70,252 @@ export default function HandymanDashboard() {
   const completedJobs = bookings.filter((b) => b.status === 'COMPLETED');
 
   // Compute stats
-  const totalEarnings = completedJobs.reduce((acc, b) => acc + (parseFloat(b.totalAmount || b.estimatedBasePrice || 0) * 0.8), 0); // 80% technician share
+  const totalEarnings = completedJobs.reduce((acc, b) => acc + (parseFloat(b.totalAmount || b.estimatedBasePrice || 0) * 0.8), 0);
   const avgRating = profile?.ratingAverage || 4.9;
 
+  const currentList = 
+    activeTab === 'PENDING_RESPONSE' ? pendingResponseJobs :
+    activeTab === 'ACTIVE' ? activeJobs : completedJobs;
+
   return (
-    <div className="container py-5">
+    <div className="container py-4">
+      <Breadcrumb items={[{ label: 'Technician Workbench' }]} />
+
       {/* Header */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
-          <div className="d-flex align-items-center gap-2">
-            <h2 className="fw-bold mb-1">Technician Workbench</h2>
-            {profile?.isVerified && (
-              <span className="badge bg-success bg-opacity-10 text-success border border-success">
-                Verified Technician
+          <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <h2 className="fw-bold text-dark mb-0" style={{ letterSpacing: '-0.02em' }}>
+              Technician Workbench
+            </h2>
+            {profile?.isVerified ? (
+              <span className="hc-badge hc-badge-success" style={{ fontSize: '0.75rem' }}>
+                <ShieldCheck size={12} className="me-0.5" /> Verified Specialist
+              </span>
+            ) : (
+              <span className="badge bg-warning bg-opacity-20 text-dark border border-warning" style={{ fontSize: '0.75rem' }}>
+                Pending Verification
               </span>
             )}
+            {profile?.teamMemberships && profile.teamMemberships.filter(m => m.approvalStatus === 'APPROVED').map(m => (
+              <span 
+                key={m.teamId} 
+                className={`badge d-inline-flex align-items-center gap-1 ${
+                  m.isPrimary 
+                    ? 'bg-primary text-white shadow-sm' 
+                    : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'
+                }`} 
+                style={{ fontSize: '0.74rem' }}
+                title={m.isPrimary ? 'Primary Department' : 'Secondary Department'}
+              >
+                <Users size={11} /> {m.teamName} {m.isPrimary && '★'}
+              </span>
+            ))}
           </div>
-          <p className="text-muted mb-0">Manage service dispatches, transit updates, spare parts usage, and earnings</p>
+          <p className="text-secondary small mb-0">
+            Real-time assignment responses, GPS transit updates, material logging, and verified payouts
+          </p>
         </div>
-        <Link to="/handyman/profile" className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
-          <Wrench size={18} /> Manage Skills &amp; Availability
+
+        <Link to="/handyman/profile" className="btn btn-outline-primary btn-sm px-3 py-2 rounded-3 d-inline-flex align-items-center gap-1.5 fw-medium">
+          <Wrench size={15} /> Skills &amp; Availability
         </Link>
       </div>
 
-      {actionSuccess && (
-        <div className="alert alert-success d-flex align-items-center gap-2 mb-4" role="alert">
-          <CheckCircle2 size={18} />
-          <div>{actionSuccess}</div>
-        </div>
-      )}
-
       {error && (
-        <div className="alert alert-danger d-flex align-items-center gap-2 mb-4" role="alert">
-          <AlertCircle size={18} />
-          <div>{error}</div>
+        <div className="alert alert-danger rounded-3 border-0 shadow-sm mb-4 small">
+          {error}
         </div>
       )}
 
-      {/* KPI Summary Cards */}
+      {/* KPI Cards Row */}
       <div className="row g-3 mb-4">
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-primary bg-opacity-10">
-            <div className="text-muted small fw-semibold">Pending Response</div>
-            <div className="fs-3 fw-bold text-primary">{pendingResponseJobs.length}</div>
-            <div className="small text-muted">Awaiting your approval</div>
-          </div>
+          <MetricCard
+            title="Awaiting Response"
+            value={pendingResponseJobs.length}
+            subtitle="Requires your action"
+            icon={Clock}
+            color="primary"
+          />
         </div>
 
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-warning bg-opacity-10">
-            <div className="text-muted small fw-semibold">Active In-Progress</div>
-            <div className="fs-3 fw-bold text-warning">{activeJobs.length}</div>
-            <div className="small text-muted">Dispatched / Working</div>
-          </div>
+          <MetricCard
+            title="Active In-Flight"
+            value={activeJobs.length}
+            subtitle="Dispatched / working"
+            icon={Navigation}
+            color="warning"
+          />
         </div>
 
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-success bg-opacity-10">
-            <div className="text-muted small fw-semibold">Completed Jobs</div>
-            <div className="fs-3 fw-bold text-success">{completedJobs.length}</div>
-            <div className="small text-muted">Satisfactory completions</div>
-          </div>
+          <MetricCard
+            title="Completed Jobs"
+            value={completedJobs.length}
+            subtitle="Satisfactory repairs"
+            icon={CheckCircle2}
+            color="success"
+          />
         </div>
 
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-info bg-opacity-10">
-            <div className="text-muted small fw-semibold">Estimated Payout</div>
-            <div className="fs-3 fw-bold text-info">${totalEarnings.toFixed(2)}</div>
-            <div className="small text-muted">★ {avgRating.toFixed(1)} rating</div>
-          </div>
+          <MetricCard
+            title="Estimated Payout"
+            value={`$${totalEarnings.toFixed(2)}`}
+            subtitle={`Rating: ★ ${avgRating.toFixed(1)}`}
+            icon={DollarSign}
+            color="info"
+          />
         </div>
       </div>
 
-      {/* Workbench Tabs */}
-      <div className="card shadow-sm border-0 rounded-4 mb-4">
-        <div className="card-body p-2 d-flex flex-wrap gap-2">
+      {/* Workbench Navigation Tabs */}
+      <div className="d-flex align-items-center gap-2 overflow-auto pb-2 mb-4" style={{ scrollbarWidth: 'none' }}>
+        {[
+          { id: 'PENDING_RESPONSE', label: 'Pending Response', count: pendingResponseJobs.length },
+          { id: 'ACTIVE', label: 'In Progress & Dispatched', count: activeJobs.length },
+          { id: 'COMPLETED', label: 'Job History & Closed', count: completedJobs.length },
+        ].map((tab) => (
           <button
-            className={`btn btn-sm rounded-pill px-3 ${activeTab === 'PENDING_RESPONSE' ? 'btn-primary' : 'btn-light'}`}
-            onClick={() => setActiveTab('PENDING_RESPONSE')}
+            key={tab.id}
+            className={`btn btn-sm px-3 py-2 rounded-pill fw-medium transition-all flex-shrink-0 ${
+              activeTab === tab.id 
+                ? 'btn-primary text-white shadow-sm' 
+                : 'btn-light text-secondary border'
+            }`}
+            onClick={() => setActiveTab(tab.id)}
           >
-            New Job Offers ({pendingResponseJobs.length})
+            {tab.label} <span className="opacity-75 ms-1">({tab.count})</span>
           </button>
-          <button
-            className={`btn btn-sm rounded-pill px-3 ${activeTab === 'ACTIVE' ? 'btn-primary' : 'btn-light'}`}
-            onClick={() => setActiveTab('ACTIVE')}
-          >
-            Active In-Progress ({activeJobs.length})
-          </button>
-          <button
-            className={`btn btn-sm rounded-pill px-3 ${activeTab === 'COMPLETED' ? 'btn-primary' : 'btn-light'}`}
-            onClick={() => setActiveTab('COMPLETED')}
-          >
-            Completed History ({completedJobs.length})
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Tab Contents */}
+      {/* Job Cards List */}
       {loading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading appointments...</span>
-          </div>
+        <div className="d-flex flex-column gap-3">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="hc-card p-4">
+              <Skeleton height="70px" />
+            </div>
+          ))}
         </div>
-      ) : activeTab === 'PENDING_RESPONSE' ? (
-        pendingResponseJobs.length === 0 ? (
-          <div className="card border-0 shadow-sm rounded-4 text-center py-5">
-            <div className="card-body">
-              <CheckCircle2 size={48} className="text-success mb-3" />
-              <h5 className="fw-bold">No Pending Assignment Requests</h5>
-              <p className="text-muted">You have reviewed all incoming dispatch matches.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="d-flex flex-column gap-3">
-            {pendingResponseJobs.map((job) => (
-              <div key={job.id} className="card border-0 shadow-sm rounded-4 overflow-hidden border-start border-4 border-warning">
-                <div className="card-body p-4">
-                  <div className="row align-items-center g-3">
-                    <div className="col-12 col-md-5">
-                      <span className="badge bg-warning text-dark mb-2">NEW DISPATCH MATCH</span>
-                      <h5 className="fw-bold text-primary mb-1">{job.serviceName}</h5>
-                      <p className="text-muted small mb-2">{job.categoryName}</p>
-                      <div className="p-2 bg-light rounded-3 small">
-                        <strong>Customer Problem:</strong> {job.problemDescription}
-                      </div>
-                    </div>
-
-                    <div className="col-12 col-md-4">
-                      <div className="small text-muted d-flex flex-column gap-1">
-                        <div className="d-flex align-items-center gap-2">
-                          <Calendar size={15} className="text-primary" />
-                          <span>{job.scheduledDate} ({job.scheduledTimeSlot})</span>
-                        </div>
-                        <div className="d-flex align-items-center gap-2">
-                          <MapPin size={15} className="text-danger" />
-                          <span>{job.customerAddress}</span>
-                        </div>
-                        <div className="d-flex align-items-center gap-2 text-success fw-bold">
-                          <DollarSign size={15} />
-                          <span>Base Compensation: ${parseFloat(job.estimatedBasePrice).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12 col-md-3 d-flex flex-column gap-2">
-                      <button
-                        className="btn btn-success d-flex align-items-center justify-content-center gap-2"
-                        onClick={() => handleAssignmentResponse(job.id, true)}
-                      >
-                        <CheckCircle2 size={18} /> Accept Assignment
-                      </button>
-                      <button
-                        className="btn btn-outline-danger btn-sm d-flex align-items-center justify-content-center gap-1"
-                        onClick={() => handleAssignmentResponse(job.id, false)}
-                      >
-                        <XCircle size={16} /> Decline
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      ) : activeTab === 'ACTIVE' ? (
-        activeJobs.length === 0 ? (
-          <div className="card border-0 shadow-sm rounded-4 text-center py-5">
-            <div className="card-body">
-              <Wrench size={48} className="text-muted mb-3" />
-              <h5 className="fw-bold">No Active In-Progress Jobs</h5>
-              <p className="text-muted">Accept incoming assignments above to begin service execution.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="d-flex flex-column gap-3">
-            {activeJobs.map((job) => (
-              <div key={job.id} className="card border-0 shadow-sm rounded-4 overflow-hidden border-start border-4 border-primary">
-                <div className="card-body p-4">
-                  <div className="row align-items-center g-3">
-                    <div className="col-12 col-md-5">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <StatusBadge status={job.status} />
-                        <span className="badge bg-light text-dark border">#{job.bookingNumber}</span>
-                      </div>
-                      <h5 className="fw-bold text-primary mb-1">{job.serviceName}</h5>
-                      <p className="text-muted small mb-0">{job.customerAddress}</p>
-                    </div>
-
-                    <div className="col-12 col-md-4">
-                      <div className="small text-muted d-flex flex-column gap-1">
-                        <div><strong>Scheduled:</strong> {job.scheduledDate} ({job.scheduledTimeSlot})</div>
-                        <div><strong>Customer:</strong> {job.customerName || 'Resident'}</div>
-                      </div>
-                    </div>
-
-                    <div className="col-12 col-md-3 text-md-end">
-                      <Link
-                        to={`/handyman/jobs/${job.id}/execute`}
-                        className="btn btn-primary d-inline-flex align-items-center gap-2 px-4 py-2"
-                      >
-                        <Play size={18} /> Execute Job
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
+      ) : currentList.length === 0 ? (
+        <EmptyState
+          icon={Wrench}
+          title="No jobs in this category"
+          description={
+            activeTab === 'PENDING_RESPONSE'
+              ? 'No pending assignment requests right now. New dispatches will appear here instantly.'
+              : activeTab === 'ACTIVE'
+              ? 'You have no jobs currently under execution.'
+              : 'Completed service records and earnings summaries will display here.'
+          }
+        />
       ) : (
-        completedJobs.length === 0 ? (
-          <div className="card border-0 shadow-sm rounded-4 text-center py-5">
-            <div className="card-body">
-              <CheckCircle2 size={48} className="text-muted mb-3" />
-              <h5 className="fw-bold">No Completed Jobs Yet</h5>
-              <p className="text-muted">Completed service history and customer reviews will appear here.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="d-flex flex-column gap-3">
-            {completedJobs.map((job) => (
-              <div key={job.id} className="card border-0 shadow-sm rounded-4 p-4">
-                <div className="row align-items-center g-3">
-                  <div className="col-12 col-md-5">
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <StatusBadge status={job.status} />
-                      <span className="badge bg-light text-dark border">#{job.bookingNumber}</span>
-                    </div>
-                    <h5 className="fw-bold mb-1">{job.serviceName}</h5>
-                    <p className="text-muted small mb-0">{job.customerAddress}</p>
+        <div className="d-flex flex-column gap-3">
+          {currentList.map((b) => (
+            <div key={b.id} className="hc-card p-4 border-0 shadow-sm transition-all">
+              <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                {/* Details */}
+                <div>
+                  <div className="d-flex flex-wrap align-items-center gap-2 mb-1.5">
+                    <span className="badge bg-light text-primary font-monospace border" style={{ fontSize: '0.78rem' }}>
+                      #{b.bookingNumber}
+                    </span>
+                    <StatusBadge status={b.status} />
+                    <span className="badge bg-light text-secondary border" style={{ fontSize: '0.72rem' }}>
+                      {b.categoryName}
+                    </span>
+                    {b.serviceTeamName && (
+                      <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 d-inline-flex align-items-center gap-1" style={{ fontSize: '0.72rem' }}>
+                        <Users size={10} /> {b.serviceTeamName}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="col-12 col-md-4">
-                    <div className="small text-muted">
-                      <div>Completed on {job.scheduledDate}</div>
-                      <div>Materials Consumed: ${parseFloat(job.materialsAmount || 0).toFixed(2)}</div>
+                  <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>
+                    {b.serviceName}
+                  </h5>
+
+                  <div className="d-flex flex-wrap align-items-center gap-3 text-secondary small mb-2">
+                    <span className="d-inline-flex align-items-center gap-1 text-dark fw-medium">
+                      <Calendar size={14} className="text-primary" /> {b.scheduledDate} ({b.scheduledTimeSlot})
+                    </span>
+                    <span>•</span>
+                    <span className="d-inline-flex align-items-center gap-1">
+                      <MapPin size={14} className="text-primary" /> {b.customerAddress}
+                    </span>
+                  </div>
+
+                  {b.problemDescription && (
+                    <div className="p-2.5 bg-light rounded-3 text-dark small mb-2" style={{ maxWidth: '640px', fontSize: '0.82rem' }}>
+                      <strong>Customer issue:</strong> {b.problemDescription}
+                    </div>
+                  )}
+
+                  {/* Required Skills Badges */}
+                  {b.requiredSkills && b.requiredSkills.length > 0 && (
+                    <div className="d-flex flex-wrap align-items-center gap-1">
+                      <span className="text-secondary" style={{ fontSize: '0.72rem' }}>Required Skills:</span>
+                      {b.requiredSkills.map((sk, idx) => (
+                        <span key={idx} className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" style={{ fontSize: '0.7rem' }}>
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Earnings & Actions */}
+                <div className="d-flex flex-column align-items-lg-end gap-2">
+                  <div className="text-lg-end">
+                    <div className="small text-secondary">Estimated Technician Payout</div>
+                    <div className="fs-5 fw-bold text-success">
+                      ${(parseFloat(b.totalAmount || b.estimatedBasePrice || 0) * 0.8).toFixed(2)}
                     </div>
                   </div>
 
-                  <div className="col-12 col-md-3 text-md-end">
-                    <div className="fw-bold fs-5 text-success">
-                      ${(parseFloat(job.totalAmount || job.estimatedBasePrice || 0) * 0.8).toFixed(2)}
-                    </div>
-                    <div className="small text-muted">Net technician payout</div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {b.status === 'ASSIGNED' && (
+                      <>
+                        <button
+                          className="btn btn-success btn-sm px-3 py-1.5 rounded-3 d-inline-flex align-items-center gap-1 fw-medium shadow-sm"
+                          onClick={() => handleAssignmentResponse(b.id, true)}
+                        >
+                          <CheckCircle2 size={15} /> Accept Job
+                        </button>
+                        <button
+                          className="btn btn-outline-danger btn-sm px-3 py-1.5 rounded-3 d-inline-flex align-items-center gap-1 fw-medium"
+                          onClick={() => handleAssignmentResponse(b.id, false)}
+                        >
+                          <XCircle size={15} /> Decline
+                        </button>
+                      </>
+                    )}
+
+                    {['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS', 'WAITING_FOR_MATERIALS'].includes(b.status) && (
+                      <Link
+                        to={`/handyman/jobs/${b.id}/execution`}
+                        className="btn btn-primary btn-sm px-3 py-1.5 rounded-3 d-inline-flex align-items-center gap-1.5 fw-medium shadow-sm"
+                      >
+                        <Play size={14} /> Update Transit / Execute
+                      </Link>
+                    )}
+
+                    <Link
+                      to={`/bookings/${b.id}`}
+                      className="btn btn-outline-secondary btn-sm px-3 py-1.5 rounded-3 d-inline-flex align-items-center gap-1"
+                    >
+                      <Eye size={14} /> Readiness &amp; BOM
+                    </Link>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

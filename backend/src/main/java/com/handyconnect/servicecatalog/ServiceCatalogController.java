@@ -27,6 +27,50 @@ public class ServiceCatalogController {
         return ResponseEntity.ok(ApiResponse.success(serviceCatalogService.getAllCategories()));
     }
 
+    @GetMapping("/categories/{id}")
+    @Operation(summary = "Get category details by ID")
+    public ResponseEntity<ApiResponse<ServiceCategoryDto>> getCategoryById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(serviceCatalogService.getCategoryById(id)));
+    }
+
+    @GetMapping("/admin/categories")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Get all service categories including inactive with metrics (Admin)")
+    public ResponseEntity<ApiResponse<List<ServiceCategoryDto>>> getAllCategoriesAdmin() {
+        return ResponseEntity.ok(ApiResponse.success(serviceCatalogService.getAllCategoriesAdmin()));
+    }
+
+    @PostMapping("/admin/categories")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create a new service category (Admin)")
+    public ResponseEntity<ApiResponse<ServiceCategoryDto>> createCategory(@RequestBody ServiceCategoryDto dto) {
+        return ResponseEntity.ok(ApiResponse.success("Category created successfully", serviceCatalogService.createCategory(dto)));
+    }
+
+    @PutMapping("/admin/categories/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Update an existing service category (Admin)")
+    public ResponseEntity<ApiResponse<ServiceCategoryDto>> updateCategory(@PathVariable Long id, @RequestBody ServiceCategoryDto dto) {
+        return ResponseEntity.ok(ApiResponse.success("Category updated successfully", serviceCatalogService.updateCategory(id, dto)));
+    }
+
+    @PatchMapping("/admin/categories/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Toggle active status of a category (Admin)")
+    public ResponseEntity<ApiResponse<String>> toggleCategoryStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+        boolean active = body.getOrDefault("isActive", true);
+        serviceCatalogService.toggleCategoryStatus(id, active);
+        return ResponseEntity.ok(ApiResponse.success("Category status updated", "Active: " + active));
+    }
+
+    @DeleteMapping("/admin/categories/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete category guarded against referenced services or bookings (Admin)")
+    public ResponseEntity<ApiResponse<String>> deleteCategory(@PathVariable Long id) {
+        serviceCatalogService.deleteCategory(id);
+        return ResponseEntity.ok(ApiResponse.success("Category deleted successfully", "Deleted"));
+    }
+
     @GetMapping("/services")
     @Operation(summary = "Get all active services with standard material requirements")
     public ResponseEntity<ApiResponse<List<ServiceDto>>> getAllServices() {
@@ -66,5 +110,21 @@ public class ServiceCatalogController {
         boolean active = body.getOrDefault("isActive", true);
         serviceCatalogService.toggleServiceStatus(id, active);
         return ResponseEntity.ok(ApiResponse.success("Service status updated", "Active: " + active));
+    }
+
+    @GetMapping("/services/{id}/required-skills")
+    @Operation(summary = "Get skills required for a service")
+    public ResponseEntity<ApiResponse<List<ServiceRequiredSkillDto>>> getRequiredSkills(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(serviceCatalogService.getRequiredSkillsForService(id)));
+    }
+
+    @PutMapping("/admin/services/{id}/required-skills")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Configure required skills for a service (Admin)")
+    public ResponseEntity<ApiResponse<List<ServiceRequiredSkillDto>>> updateRequiredSkills(
+            @PathVariable Long id,
+            @RequestBody List<ServiceRequiredSkillDto> skillsList
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Required skills updated", serviceCatalogService.updateRequiredSkills(id, skillsList)));
     }
 }

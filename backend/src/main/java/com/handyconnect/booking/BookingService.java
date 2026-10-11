@@ -7,6 +7,8 @@ import com.handyconnect.customer.Address;
 import com.handyconnect.customer.AddressRepository;
 import com.handyconnect.handyman.HandymanProfile;
 import com.handyconnect.handyman.HandymanProfileRepository;
+import com.handyconnect.handyman.HandymanSpecialization;
+import com.handyconnect.servicecatalog.ServiceRequiredSkill;
 import com.handyconnect.inventory.*;
 import com.handyconnect.invoice.InvoiceService;
 import com.handyconnect.logistics.HandymanRecommendation;
@@ -21,15 +23,18 @@ import com.handyconnect.servicecatalog.ServiceMaterial;
 import com.handyconnect.servicecatalog.ServiceMaterialRepository;
 import com.handyconnect.user.User;
 import com.handyconnect.user.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.access.AccessDeniedException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -50,6 +55,13 @@ public class BookingService {
     private final JobReadinessEngine readinessEngine;
     private final NotificationService notificationService;
     private final InvoiceService invoiceService;
+    private final AttachmentService attachmentService;
+    private final com.handyconnect.servicecatalog.ServiceRequiredSkillRepository serviceRequiredSkillRepository;
+    private final com.handyconnect.handyman.HandymanSpecializationRepository handymanSpecializationRepository;
+    private final com.handyconnect.team.HandymanTeamRepository handymanTeamRepository;
+
+    @Value("${handyconnect.dispatch.auto-assign-enabled:false}")
+    private boolean autoAssignEnabled;
 
     public BookingService(BookingRepository bookingRepository,
                           BookingAssignmentRepository assignmentRepository,
@@ -64,7 +76,11 @@ public class BookingService {
                           InventoryService inventoryService,
                           JobReadinessEngine readinessEngine,
                           NotificationService notificationService,
-                          @Lazy InvoiceService invoiceService) {
+                          @Lazy InvoiceService invoiceService,
+                          AttachmentService attachmentService,
+                          com.handyconnect.servicecatalog.ServiceRequiredSkillRepository serviceRequiredSkillRepository,
+                          com.handyconnect.handyman.HandymanSpecializationRepository handymanSpecializationRepository,
+                          com.handyconnect.team.HandymanTeamRepository handymanTeamRepository) {
         this.bookingRepository = bookingRepository;
         this.assignmentRepository = assignmentRepository;
         this.historyRepository = historyRepository;
@@ -79,6 +95,10 @@ public class BookingService {
         this.readinessEngine = readinessEngine;
         this.notificationService = notificationService;
         this.invoiceService = invoiceService;
+        this.attachmentService = attachmentService;
+        this.serviceRequiredSkillRepository = serviceRequiredSkillRepository;
+        this.handymanSpecializationRepository = handymanSpecializationRepository;
+        this.handymanTeamRepository = handymanTeamRepository;
     }
 
     @Transactional
@@ -131,6 +151,11 @@ public class BookingService {
 
         Booking saved = bookingRepository.save(booking);
 
+        // Link problem photo attachments if uploaded
+        if (req.getAttachmentIds() != null && !req.getAttachmentIds().isEmpty()) {
+            attachmentService.linkAttachmentsToBooking(req.getAttachmentIds(), saved, customerUserId);
+        }
+
         // Log status history
         historyRepository.save(new BookingStatusHistory(saved, null, BookingStatus.PENDING.name(), customer, "Booking requested by customer"));
 
@@ -138,11 +163,62 @@ public class BookingService {
                 "Your booking " + saved.getBookingReference() + " for " + service.getName() + " has been received.",
                 "BOOKING", "BOOKING", saved.getId().toString());
 
+        // Technician selection: direct selection or automatic intelligent dispatch
+        if (req.getSelectedHandymanId() != null) {
+            HandymanProfile selected = handymanProfileRepository.findById(req.getSelectedHandymanId())
+                    .orElseThrow(() -> new ResourceNotFoundException("HandymanProfile", "id", req.getSelectedHandymanId()));
+
+            if ("INACTIVE".equalsIgnoreCase(selected.getActiveStatus())) {
+                throw new BadRequestException("Technician " + selected.getUser().getFullName() + " is currently inactive and cannot accept new bookings");
+            }
+
+            // Conflict check
+            List<BookingAssignment> conflicts = assignmentRepository.findConflictingAssignments(
+                    selected.getId(), req.getScheduledDate(), req.getScheduledTimeSlot());
+            if (!conflicts.isEmpty()) {
+                throw new BadRequestException("Technician " + selected.getUser().getFullName() +
+                        " is already booked for " + req.getScheduledDate() + " during slot " + req.getScheduledTimeSlot() +
+                        ". Please choose another time slot or use auto-dispatch.");
+            }
+
+            return assignHandyman(saved.getId(), selected.getId(), null, false, "Customer selected specialist");
+        } else {
+            // "⚡ Automatically Assign the Best Available Professional"
+            HandymanRecommendation topMatch = eval.getEligibleHandymen().stream()
+                    .filter(HandymanRecommendation::isEligible)
+                    .findFirst()
+                    .orElse(null);
+            if (topMatch != null) {
+                return assignHandyman(saved.getId(), topMatch.getHandymanId(), null);
+            } else {
+                String reasonSummary = eval.getEligibleHandymen().stream()
+                        .filter(h -> h.getIneligibilityReasons() != null && !h.getIneligibilityReasons().isEmpty())
+                        .map(h -> h.getFullName() + ": " + String.join(", ", h.getIneligibilityReasons()))
+                        .reduce((a, b) -> a + "; " + b)
+                        .orElse("No available technicians meet mandatory trade skill, schedule, or workload capacity requirements");
+                saved.setReadinessNotes("Awaiting dispatch review — " + reasonSummary);
+                bookingRepository.save(saved);
+            }
+        }
+
         return mapToDto(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HandymanRecommendation> getAssignmentRecommendations(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", bookingId));
+        JobReadinessEvaluation eval = readinessEngine.evaluateBooking(booking);
+        return eval.getEligibleHandymen();
     }
 
     @Transactional
     public BookingDto assignHandyman(Long bookingId, Long handymanId, Long adminUserId) {
+        return assignHandyman(bookingId, handymanId, adminUserId, false, null);
+    }
+
+    @Transactional
+    public BookingDto assignHandyman(Long bookingId, Long handymanId, Long adminUserId, boolean overrideRules, String overrideReason) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", bookingId));
 
@@ -150,18 +226,44 @@ public class BookingService {
         HandymanProfile handyman = handymanProfileRepository.findById(handymanId)
                 .orElseThrow(() -> new ResourceNotFoundException("HandymanProfile", "id", handymanId));
 
-        stateMachine.validateTransition(booking.getStatus(), BookingStatus.ASSIGNED);
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            stateMachine.validateTransition(booking.getStatus(), BookingStatus.ASSIGNED);
+        }
 
-        // Evaluate match
+        // Evaluate skill-based match and eligibility
         JobReadinessEvaluation eval = readinessEngine.evaluateBooking(booking);
         HandymanRecommendation match = eval.getEligibleHandymen().stream()
                 .filter(h -> h.getHandymanId().equals(handymanId))
                 .findFirst()
                 .orElse(null);
 
-        BigDecimal score = match != null ? match.getMatchScore() : BigDecimal.valueOf(50.0);
-        String reason = match != null && match.getMatchReasons() != null ?
-                String.join("; ", match.getMatchReasons()) : "Direct admin assignment";
+        BigDecimal score = BigDecimal.valueOf(50.0);
+        String reason = "Intelligent skill-based match";
+
+        if (match == null || !match.isEligible()) {
+            String constraintReason = match != null && match.getIneligibilityReasons() != null && !match.getIneligibilityReasons().isEmpty()
+                    ? String.join("; ", match.getIneligibilityReasons())
+                    : "Technician does not meet mandatory department, skills or eligibility requirements for this service";
+            if (!overrideRules || adminUserId == null) {
+                throw new BadRequestException("Technician " + handyman.getUser().getFullName() + " cannot be assigned: " + constraintReason);
+            }
+            score = BigDecimal.valueOf(40.0);
+            reason = "Admin manual dispatch override" + (overrideReason != null && !overrideReason.isBlank() ? ": " + overrideReason : "")
+                    + " (Overridden constraints: " + constraintReason + ")";
+        } else {
+            score = match.getMatchScore() != null ? match.getMatchScore() : BigDecimal.valueOf(50.0);
+            reason = match.getMatchReasons() != null && !match.getMatchReasons().isEmpty() ?
+                    String.join("; ", match.getMatchReasons()) : "Intelligent department & skill match";
+        }
+
+        // Mark any previous assignments as REASSIGNED to preserve audit history
+        List<BookingAssignment> priorAssignments = assignmentRepository.findByBookingId(booking.getId());
+        for (BookingAssignment prior : priorAssignments) {
+            if ("PENDING".equals(prior.getAssignmentStatus()) || "ACCEPTED".equals(prior.getAssignmentStatus())) {
+                prior.setAssignmentStatus("REASSIGNED");
+                assignmentRepository.save(prior);
+            }
+        }
 
         BookingAssignment assignment = new BookingAssignment(booking, handyman, admin, score, reason);
         assignmentRepository.save(assignment);
@@ -188,7 +290,7 @@ public class BookingService {
         bookingRepository.save(booking);
 
         historyRepository.save(new BookingStatusHistory(booking, oldStatus.name(), BookingStatus.ASSIGNED.name(), admin,
-                "Assigned to handyman " + handyman.getUser().getFullName() + " (Score: " + score + "%)"));
+                "Assigned to handyman " + handyman.getUser().getFullName() + " (" + match.getPrimarySpecialization() + ", Match Score: " + score + "%)"));
 
         // Notify handyman and customer
         notificationService.createNotification(handyman.getUser(), "New Job Assignment",
@@ -196,7 +298,73 @@ public class BookingService {
                 "ASSIGNMENT", "BOOKING", booking.getId().toString());
 
         notificationService.createNotification(booking.getCustomer(), "Handyman Assigned",
-                "Handyman " + handyman.getUser().getFullName() + " has been assigned to your booking " + booking.getBookingReference() + ".",
+                "Handyman " + handyman.getUser().getFullName() + " (" + match.getPrimarySpecialization() + ") has been assigned to your booking " + booking.getBookingReference() + ".",
+                "ASSIGNMENT", "BOOKING", booking.getId().toString());
+
+        return mapToDto(booking);
+    }
+
+    @Transactional
+    public BookingDto reassignHandyman(Long bookingId, Long newHandymanId, Long adminUserId, String reasonNote) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", bookingId));
+
+        User admin = adminUserId != null ? userRepository.findById(adminUserId).orElse(null) : null;
+        HandymanProfile newHandyman = handymanProfileRepository.findById(newHandymanId)
+                .orElseThrow(() -> new ResourceNotFoundException("HandymanProfile", "id", newHandymanId));
+
+        // Evaluate skill-based match and eligibility
+        JobReadinessEvaluation eval = readinessEngine.evaluateBooking(booking);
+        HandymanRecommendation match = eval.getEligibleHandymen().stream()
+                .filter(h -> h.getHandymanId().equals(newHandymanId))
+                .findFirst()
+                .orElse(null);
+
+        if (match == null || !match.isEligible()) {
+            String failureReason = match != null && match.getIneligibilityReasons() != null && !match.getIneligibilityReasons().isEmpty()
+                    ? String.join("; ", match.getIneligibilityReasons())
+                    : "Technician does not meet mandatory skills or eligibility requirements for this service";
+            throw new BadRequestException("Technician " + newHandyman.getUser().getFullName() + " cannot be assigned: " + failureReason);
+        }
+
+        BigDecimal score = match.getMatchScore() != null ? match.getMatchScore() : BigDecimal.valueOf(50.0);
+        String matchReason = match.getMatchReasons() != null && !match.getMatchReasons().isEmpty() ?
+                String.join("; ", match.getMatchReasons()) : "Reassignment selection";
+
+        // Mark prior assignments as REASSIGNED
+        List<BookingAssignment> priorAssignments = assignmentRepository.findByBookingId(booking.getId());
+        HandymanProfile oldHandyman = null;
+        for (BookingAssignment prior : priorAssignments) {
+            if ("PENDING".equals(prior.getAssignmentStatus()) || "ACCEPTED".equals(prior.getAssignmentStatus())) {
+                prior.setAssignmentStatus("REASSIGNED");
+                assignmentRepository.save(prior);
+                oldHandyman = prior.getHandyman();
+            }
+        }
+
+        BookingAssignment newAssignment = new BookingAssignment(booking, newHandyman, admin, score, matchReason);
+        assignmentRepository.save(newAssignment);
+
+        booking.setStatus(BookingStatus.ASSIGNED);
+        bookingRepository.save(booking);
+
+        String note = "Reassigned to " + newHandyman.getUser().getFullName() +
+                (reasonNote != null && !reasonNote.isBlank() ? " (Reason: " + reasonNote + ")" : "") +
+                " [Match Score: " + score + "%]";
+        historyRepository.save(new BookingStatusHistory(booking, BookingStatus.ASSIGNED.name(), BookingStatus.ASSIGNED.name(), admin, note));
+
+        if (oldHandyman != null && oldHandyman.getUser() != null) {
+            notificationService.createNotification(oldHandyman.getUser(), "Job Reassigned",
+                    "Booking " + booking.getBookingReference() + " has been reassigned to another technician.",
+                    "ASSIGNMENT", "BOOKING", booking.getId().toString());
+        }
+
+        notificationService.createNotification(newHandyman.getUser(), "New Job Assignment (Reassigned)",
+                "You have been assigned to job " + booking.getBookingReference() + " (" + booking.getService().getName() + "). Please review and accept.",
+                "ASSIGNMENT", "BOOKING", booking.getId().toString());
+
+        notificationService.createNotification(booking.getCustomer(), "Handyman Reassigned",
+                "Your booking " + booking.getBookingReference() + " has been reassigned to " + newHandyman.getUser().getFullName() + " (" + match.getPrimarySpecialization() + ").",
                 "ASSIGNMENT", "BOOKING", booking.getId().toString());
 
         return mapToDto(booking);
@@ -267,6 +435,15 @@ public class BookingService {
                     bookingMaterialRepository.save(bm);
                 }
             }
+        } else if (newStatus == BookingStatus.CANCELLED) {
+            inventoryService.releaseReservationsForBooking(booking.getId(), userId);
+            List<BookingMaterial> bms = bookingMaterialRepository.findByBookingId(booking.getId());
+            for (BookingMaterial bm : bms) {
+                if ("RESERVED".equals(bm.getStatus())) {
+                    bm.setStatus("CANCELLED");
+                    bookingMaterialRepository.save(bm);
+                }
+            }
         }
 
         bookingRepository.save(booking);
@@ -331,40 +508,127 @@ public class BookingService {
 
     @Transactional(readOnly = true)
     public List<BookingDto> getBookingsForUser(Long userId) {
+        return getBookingsForUser(userId, null, null, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingDto> getBookingsForUser(Long userId, Long categoryId, Long handymanId, BookingStatus status, LocalDate fromDate, LocalDate toDate) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+        List<Booking> list;
         if ("ROLE_CUSTOMER".equals(user.getRole())) {
-            return bookingRepository.findByCustomerIdOrderByCreatedAtDesc(userId).stream()
-                    .map(this::mapToDto)
-                    .collect(Collectors.toList());
+            list = bookingRepository.findByCustomerIdOrderByCreatedAtDesc(userId);
         } else if ("ROLE_HANDYMAN".equals(user.getRole())) {
             HandymanProfile profile = handymanProfileRepository.findByUserId(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("HandymanProfile not found"));
             List<BookingAssignment> assignments = assignmentRepository.findByHandymanIdOrderByAssignedAtDesc(profile.getId());
-            return assignments.stream()
-                    .map(a -> mapToDto(a.getBooking()))
-                    .collect(Collectors.toList());
+            list = assignments.stream().map(BookingAssignment::getBooking).collect(Collectors.toList());
         } else {
             // ADMIN or INVENTORY MANAGER: all bookings
-            return bookingRepository.findAll().stream()
-                    .map(this::mapToDto)
-                    .collect(Collectors.toList());
+            list = bookingRepository.findAll();
         }
+
+        return list.stream()
+                .filter(b -> categoryId == null || (b.getService() != null && b.getService().getCategory() != null && b.getService().getCategory().getId().equals(categoryId)))
+                .filter(b -> status == null || b.getStatus() == status)
+                .filter(b -> fromDate == null || (b.getScheduledDate() != null && !b.getScheduledDate().isBefore(fromDate)))
+                .filter(b -> toDate == null || (b.getScheduledDate() != null && !b.getScheduledDate().isAfter(toDate)))
+                .filter(b -> {
+                    if (handymanId == null) return true;
+                    return assignmentRepository.findByBookingId(b.getId()).stream()
+                            .anyMatch(a -> a.getHandyman() != null && a.getHandyman().getId().equals(handymanId) && !"REASSIGNED".equals(a.getAssignmentStatus()));
+                })
+                .sorted((a, b) -> b.getId().compareTo(a.getId()))
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public BookingDto getBookingById(Long id) {
+        return getBookingById(id, null);
+    }
+
+    @Transactional(readOnly = true)
+    public BookingDto getBookingById(Long id, Long userId) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", id));
+        validateBookingAccess(booking, userId);
+        return mapToDto(booking);
+    }
+
+    @Transactional(readOnly = true)
+    public BookingDto getBookingByIdOrReference(String idOrRef, Long userId) {
+        Booking booking = findBookingByIdOrReference(idOrRef);
+        validateBookingAccess(booking, userId);
         return mapToDto(booking);
     }
 
     @Transactional(readOnly = true)
     public JobReadinessEvaluation evaluateBookingReadiness(Long id) {
+        return evaluateBookingReadiness(id, null);
+    }
+
+    @Transactional(readOnly = true)
+    public JobReadinessEvaluation evaluateBookingReadiness(Long id, Long userId) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", id));
+        validateBookingAccess(booking, userId);
         return readinessEngine.evaluateBooking(booking);
+    }
+
+    @Transactional(readOnly = true)
+    public JobReadinessEvaluation evaluateBookingReadinessByIdOrRef(String idOrRef, Long userId) {
+        Booking booking = findBookingByIdOrReference(idOrRef);
+        validateBookingAccess(booking, userId);
+        return readinessEngine.evaluateBooking(booking);
+    }
+
+    private Booking findBookingByIdOrReference(String idOrRef) {
+        if (idOrRef == null || idOrRef.isBlank()) {
+            throw new ResourceNotFoundException("Booking", "id", idOrRef);
+        }
+        try {
+            Long numericId = Long.parseLong(idOrRef);
+            Optional<Booking> byId = bookingRepository.findById(numericId);
+            if (byId.isPresent()) return byId.get();
+        } catch (NumberFormatException ignored) {}
+
+        return bookingRepository.findByBookingReference(idOrRef)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", "reference", idOrRef));
+    }
+
+    public void validateBookingAccess(Booking booking, Long userId) {
+        if (userId == null) return;
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return;
+
+        // Admin and Inventory Manager can view any booking
+        if ("ROLE_ADMIN".equals(user.getRole()) || "ROLE_INVENTORY_MANAGER".equals(user.getRole())) {
+            return;
+        }
+
+        // Customer can only view their own bookings
+        if ("ROLE_CUSTOMER".equals(user.getRole())) {
+            if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(userId)) {
+                throw new AccessDeniedException("You are not authorized to view this booking.");
+            }
+            return;
+        }
+
+        // Handyman can only view bookings assigned to them
+        if ("ROLE_HANDYMAN".equals(user.getRole())) {
+            HandymanProfile profile = handymanProfileRepository.findByUserId(userId).orElse(null);
+            if (profile == null) {
+                throw new AccessDeniedException("Technician profile not found.");
+            }
+            List<BookingAssignment> assignments = assignmentRepository.findByBookingId(booking.getId());
+            boolean isAssigned = assignments.stream().anyMatch(a -> a.getHandyman().getId().equals(profile.getId()));
+            if (!isAssigned) {
+                throw new AccessDeniedException("You are not authorized to view this booking as you are not the assigned technician.");
+            }
+            return;
+        }
     }
 
     public BookingDto mapToDto(Booking b) {
@@ -380,7 +644,14 @@ public class BookingService {
             dto.setServiceId(b.getService().getId());
             dto.setServiceName(b.getService().getName());
             if (b.getService().getCategory() != null) {
+                dto.setCategoryId(b.getService().getCategory().getId());
                 dto.setServiceCategory(b.getService().getCategory().getName());
+            }
+            if (b.getService().getTeam() != null) {
+                dto.setServiceTeamId(b.getService().getTeam().getId());
+                dto.setServiceTeamName(b.getService().getTeam().getName());
+                dto.setServiceTeamCode(b.getService().getTeam().getCode());
+                dto.setServiceTeamIcon(b.getService().getTeam().getIconName());
             }
         }
         if (b.getAddress() != null) {
@@ -411,7 +682,41 @@ public class BookingService {
                 dto.setAssignedHandymanPhone(a.getHandyman().getUser().getPhone());
             }
             dto.setAssignmentStatus(a.getAssignmentStatus());
+            dto.setAssignedHandymanRating(a.getHandyman().getRatingAvg());
+            dto.setAssignedHandymanPhoto(a.getHandyman().getProfilePhotoUrl());
+
+            List<HandymanSpecialization> hSpecs = handymanSpecializationRepository.findByHandymanId(a.getHandyman().getId());
+            List<String> specNames = hSpecs.stream().map(s -> s.getSpecialization().getName()).collect(Collectors.toList());
+            dto.setAssignedHandymanSpecializations(specNames);
+            hSpecs.stream()
+                    .filter(s -> Boolean.TRUE.equals(s.getIsPrimary()))
+                    .findFirst()
+                    .ifPresent(s -> dto.setAssignedHandymanSpecialization(s.getSpecialization().getName()));
+            if (dto.getAssignedHandymanSpecialization() == null && !specNames.isEmpty()) {
+                dto.setAssignedHandymanSpecialization(specNames.get(0));
+            }
+
+            // Populate approved teams for assigned technician
+            List<com.handyconnect.team.HandymanTeam> hTeams = handymanTeamRepository.findByHandymanId(a.getHandyman().getId());
+            List<String> approvedTeams = hTeams.stream()
+                    .filter(t -> "APPROVED".equalsIgnoreCase(t.getApprovalStatus()))
+                    .map(t -> t.getTeam().getName())
+                    .collect(Collectors.toList());
+            dto.setAssignedHandymanTeams(approvedTeams);
+            hTeams.stream()
+                    .filter(t -> Boolean.TRUE.equals(t.getIsPrimary()) && "APPROVED".equalsIgnoreCase(t.getApprovalStatus()))
+                    .findFirst()
+                    .ifPresent(t -> dto.setAssignedHandymanPrimaryTeam(t.getTeam().getName()));
+            if (dto.getAssignedHandymanPrimaryTeam() == null && !approvedTeams.isEmpty()) {
+                dto.setAssignedHandymanPrimaryTeam(approvedTeams.get(0));
+            }
         });
+
+        // Required skills
+        if (b.getService() != null) {
+            List<ServiceRequiredSkill> reqSkills = serviceRequiredSkillRepository.findByServiceId(b.getService().getId());
+            dto.setRequiredSkills(reqSkills.stream().map(s -> s.getSkill().getName()).collect(Collectors.toList()));
+        }
 
         // Materials
         List<BookingDto.BookingMaterialDto> materials = bookingMaterialRepository.findByBookingId(b.getId()).stream()
@@ -424,6 +729,14 @@ public class BookingService {
                 .map(BookingDto.BookingStatusHistoryDto::new)
                 .collect(Collectors.toList());
         dto.setHistory(history);
+
+        // Attached problem photos
+        if (b.getAttachments() != null && !b.getAttachments().isEmpty()) {
+            dto.setAttachments(b.getAttachments().stream().map(AttachmentDto::new).collect(Collectors.toList()));
+            if (dto.getPhotoUrl() == null || dto.getPhotoUrl().isBlank()) {
+                dto.setPhotoUrl(dto.getAttachments().get(0).getUrl());
+            }
+        }
 
         return dto;
     }

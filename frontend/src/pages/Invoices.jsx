@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
-import { FileText, Download, CheckCircle2, Clock, Printer, Eye } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { 
+  FileText, Download, CheckCircle2, Clock, Printer, Eye, 
+  DollarSign, Calendar, Building2, Wrench, ShieldCheck, X 
+} from 'lucide-react';
+import Breadcrumb from '../components/Breadcrumb';
+import Skeleton from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 
 export default function Invoices() {
+  const { showToast } = useToast();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -18,37 +26,43 @@ export default function Invoices() {
       setInvoices(res.data.data || []);
     } catch (err) {
       console.error('Failed to load invoices:', err);
+      showToast('Could not load billing statements.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container py-5">
+    <div className="container py-4">
+      <Breadcrumb items={[{ label: 'Invoices & Billing' }]} />
+
       <div className="mb-4">
-        <h2 className="fw-bold mb-1">Billing &amp; Invoices</h2>
-        <p className="text-muted mb-0">View all itemized service invoices, material receipts, and payment transactions</p>
+        <h2 className="fw-bold text-dark mb-0" style={{ letterSpacing: '-0.02em' }}>
+          Billing &amp; Invoices
+        </h2>
+        <p className="text-secondary small mb-0 mt-0.5">
+          View all itemized service statements, material receipts, and verified payment transactions
+        </p>
       </div>
 
       {loading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading invoices...</span>
-          </div>
+        <div className="hc-card p-4">
+          <Skeleton height="40px" className="mb-3" />
+          <Skeleton height="50px" className="mb-2" />
+          <Skeleton height="50px" className="mb-2" />
+          <Skeleton height="50px" />
         </div>
       ) : invoices.length === 0 ? (
-        <div className="card border-0 shadow-sm rounded-4 text-center py-5">
-          <div className="card-body">
-            <FileText size={48} className="text-muted mb-3" />
-            <h5 className="fw-bold">No Invoices Found</h5>
-            <p className="text-muted">Invoices are generated automatically upon completion of service appointments.</p>
-          </div>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No invoices found"
+          description="Invoices are generated automatically upon completion of service appointments with itemized parts breakdown."
+        />
       ) : (
-        <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div className="hc-card border-0 shadow-sm rounded-4 overflow-hidden">
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">
-              <thead className="table-light">
+              <thead className="table-light text-secondary small">
                 <tr>
                   <th className="ps-4">Invoice #</th>
                   <th>Booking Reference</th>
@@ -56,30 +70,33 @@ export default function Invoices() {
                   <th>Labor Base</th>
                   <th>Parts / Materials</th>
                   <th>Total Amount</th>
-                  <th>Status</th>
-                  <th className="text-end pe-4">Action</th>
+                  <th>Payment Status</th>
+                  <th className="text-end pe-4">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="small">
                 {invoices.map((inv) => (
                   <tr key={inv.id}>
-                    <td className="ps-4 fw-bold text-primary">{inv.invoiceNumber}</td>
-                    <td>#{inv.bookingNumber}</td>
-                    <td>{new Date(inv.issuedAt || inv.createdAt).toLocaleDateString()}</td>
+                    <td className="ps-4 fw-bold font-monospace text-primary">
+                      {inv.invoiceNumber}
+                    </td>
+                    <td className="font-monospace">#{inv.bookingNumber}</td>
+                    <td className="text-secondary">{new Date(inv.issuedAt || inv.createdAt).toLocaleDateString()}</td>
                     <td>${parseFloat(inv.baseLaborAmount).toFixed(2)}</td>
                     <td>${parseFloat(inv.materialsAmount || 0).toFixed(2)}</td>
-                    <td className="fw-bold">${parseFloat(inv.totalAmount).toFixed(2)}</td>
+                    <td className="fw-bold text-dark">${parseFloat(inv.totalAmount).toFixed(2)}</td>
                     <td>
-                      <span className={`badge ${inv.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'}`}>
+                      <span className={`badge px-2.5 py-1 ${inv.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontWeight: 600 }}>
                         {inv.status}
                       </span>
                     </td>
                     <td className="text-end pe-4">
                       <button
-                        className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                        className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-3 d-inline-flex align-items-center gap-1"
+                        style={{ fontSize: '0.75rem' }}
                         onClick={() => setSelectedInvoice(inv)}
                       >
-                        <Eye size={15} /> View
+                        <Eye size={13} /> View Invoice
                       </button>
                     </td>
                   </tr>
@@ -92,70 +109,87 @@ export default function Invoices() {
 
       {/* Invoice Viewer Modal */}
       {selectedInvoice && (
-        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content rounded-4 border-0 shadow">
-              <div className="modal-header border-0 pb-0">
+            <div className="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+              <div className="modal-header border-bottom px-4 pt-4 pb-3 bg-light">
+                <div className="d-flex align-items-center gap-2">
+                  <div className="p-2 rounded-circle bg-primary text-white">
+                    <FileText size={18} />
+                  </div>
+                  <div>
+                    <h5 className="modal-title fw-bold text-dark mb-0">Invoice #{selectedInvoice.invoiceNumber}</h5>
+                    <div className="text-secondary small">HandyConnect Official Settlement Receipt</div>
+                  </div>
+                </div>
                 <button type="button" className="btn-close" onClick={() => setSelectedInvoice(null)}></button>
               </div>
-              <div className="modal-body p-4 p-md-5">
-                <div className="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
+
+              <div className="modal-body p-4">
+                <div className="row g-3 mb-4">
+                  <div className="col-sm-6">
+                    <div className="text-secondary small">Issued To:</div>
+                    <div className="fw-bold text-dark">{selectedInvoice.customerName || 'Customer'}</div>
+                    <div className="text-secondary small">{selectedInvoice.customerAddress}</div>
+                  </div>
+                  <div className="col-sm-6 text-sm-end">
+                    <div className="text-secondary small">Date Issued:</div>
+                    <div className="fw-semibold text-dark">{new Date(selectedInvoice.issuedAt || selectedInvoice.createdAt).toLocaleDateString()}</div>
+                    <div className="text-secondary small">Booking Ref: #{selectedInvoice.bookingNumber}</div>
+                  </div>
+                </div>
+
+                <div className="table-responsive border rounded-3 mb-4">
+                  <table className="table mb-0 small">
+                    <thead className="table-light text-secondary">
+                      <tr>
+                        <th>Description</th>
+                        <th className="text-end">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <div className="fw-semibold text-dark">Service Labor Base Charge</div>
+                          <div className="text-secondary" style={{ fontSize: '0.75rem' }}>Fixed platform rate for scheduled trade appointment</div>
+                        </td>
+                        <td className="text-end fw-semibold">${parseFloat(selectedInvoice.baseLaborAmount).toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div className="fw-semibold text-dark">Verified Materials &amp; Spare Parts</div>
+                          <div className="text-secondary" style={{ fontSize: '0.75rem' }}>Warehouse components pre-allocated &amp; consumed</div>
+                        </td>
+                        <td className="text-end fw-semibold">${parseFloat(selectedInvoice.materialsAmount || 0).toFixed(2)}</td>
+                      </tr>
+                      <tr className="table-light">
+                        <td className="fw-bold">Total Invoiced:</td>
+                        <td className="text-end fw-bold text-primary fs-6">${parseFloat(selectedInvoice.totalAmount).toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded-3 small">
                   <div>
-                    <h3 className="fw-bold text-primary mb-1">HandyConnect</h3>
-                    <p className="text-muted small mb-0">Home Services, Logistics &amp; Inventory Management Platform</p>
+                    <span className="text-secondary">Payment Method: </span>
+                    <strong className="text-dark">{selectedInvoice.paymentMethod || 'Simulated Electronic Gateway'}</strong>
                   </div>
-                  <div className="text-end">
-                    <h5 className="fw-bold mb-1">INVOICE</h5>
-                    <div className="text-muted small">{selectedInvoice.invoiceNumber}</div>
-                    <div className="text-muted small">Date: {new Date(selectedInvoice.issuedAt || selectedInvoice.createdAt).toLocaleDateString()}</div>
-                  </div>
+                  <span className={`badge px-2.5 py-1 ${selectedInvoice.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'}`}>
+                    {selectedInvoice.status}
+                  </span>
                 </div>
-
-                <div className="row g-4 mb-4">
-                  <div className="col-6">
-                    <h6 className="fw-bold text-dark mb-1">Bill To:</h6>
-                    <div className="text-muted small">{selectedInvoice.customerName}</div>
-                    <div className="text-muted small">{selectedInvoice.customerAddress}</div>
-                  </div>
-                  <div className="col-6 text-end">
-                    <h6 className="fw-bold text-dark mb-1">Payment Status:</h6>
-                    <span className={`badge fs-6 ${selectedInvoice.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'}`}>
-                      {selectedInvoice.status}
-                    </span>
-                  </div>
-                </div>
-
-                <table className="table table-bordered mb-4">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Description</th>
-                      <th className="text-end">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Handyman Professional Labor (Booking #{selectedInvoice.bookingNumber})</td>
-                      <td className="text-end">${parseFloat(selectedInvoice.baseLaborAmount).toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                      <td>Parts &amp; Consumed Materials</td>
-                      <td className="text-end">${parseFloat(selectedInvoice.materialsAmount || 0).toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                      <td>Tax &amp; Service Platform Surcharge (10%)</td>
-                      <td className="text-end">${parseFloat(selectedInvoice.taxAmount || (parseFloat(selectedInvoice.totalAmount) - parseFloat(selectedInvoice.baseLaborAmount) - parseFloat(selectedInvoice.materialsAmount || 0))).toFixed(2)}</td>
-                    </tr>
-                    <tr className="table-light fw-bold">
-                      <td>Total Invoice Amount</td>
-                      <td className="text-end text-success">${parseFloat(selectedInvoice.totalAmount).toFixed(2)}</td>
-                    </tr>
-                  </tbody>
-                </table>
               </div>
-              <div className="modal-footer border-0">
-                <button className="btn btn-secondary" onClick={() => setSelectedInvoice(null)}>Close</button>
-                <button className="btn btn-primary d-inline-flex align-items-center gap-2" onClick={() => window.print()}>
-                  <Printer size={16} /> Print Invoice
+
+              <div className="modal-footer border-top px-4 py-3 bg-light d-flex justify-content-between">
+                <button 
+                  className="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 d-inline-flex align-items-center gap-1.5"
+                  onClick={() => window.print()}
+                >
+                  <Printer size={15} /> Print Receipt
+                </button>
+                <button type="button" className="btn btn-primary btn-sm px-4 py-2 rounded-3" onClick={() => setSelectedInvoice(null)}>
+                  Close
                 </button>
               </div>
             </div>

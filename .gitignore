@@ -39,7 +39,13 @@ buildNumber.properties
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
+frontend/.vite/
+.vite/
 *.local
+
+# Uploads
+backend/uploads/
+uploads/
 
 # IDE
 .idea/

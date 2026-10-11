@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { 
   Package, AlertTriangle, ArrowRightLeft, ShoppingCart, 
-  DollarSign, MapPin, TrendingDown, Clock, ShieldCheck, Plus, CheckCircle2 
+  DollarSign, MapPin, TrendingDown, Clock, ShieldCheck, Plus, CheckCircle2,
+  Building2, Layers
 } from 'lucide-react';
+import Breadcrumb from '../components/Breadcrumb';
+import MetricCard from '../components/MetricCard';
+import Skeleton from '../components/Skeleton';
 
 export default function InventoryDashboard() {
   const [balances, setBalances] = useState([]);
@@ -45,109 +49,132 @@ export default function InventoryDashboard() {
   );
 
   return (
-    <div className="container py-5">
-      {/* Top Banner */}
+    <div className="container py-4">
+      <Breadcrumb items={[{ label: 'Inventory & Logistics Command' }]} />
+
+      {/* Header */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
-          <span className="badge bg-warning bg-opacity-10 text-dark px-3 py-1 rounded-pill fw-semibold mb-1">
-            Warehouse Logistics &amp; Material Management
-          </span>
-          <h2 className="fw-bold mb-1">Inventory Operations Command</h2>
-          <p className="text-muted mb-0">Multi-warehouse stock levels, reorder analytics, and immutable ledger movements</p>
+          <div className="d-flex align-items-center gap-2 mb-1">
+            <span className="badge bg-warning bg-opacity-15 text-dark px-2.5 py-1 rounded-pill fw-semibold" style={{ fontSize: '0.75rem' }}>
+              WAREHOUSE LOGISTICS &amp; MATERIAL MANAGEMENT
+            </span>
+          </div>
+          <h2 className="fw-bold text-dark mb-0" style={{ letterSpacing: '-0.02em' }}>
+            Inventory Operations Command
+          </h2>
+          <p className="text-secondary small mb-0 mt-0.5">
+            Multi-warehouse stock levels, reorder analytics, and immutable ledger movements
+          </p>
         </div>
+
         <div className="d-flex flex-wrap gap-2">
-          <Link to="/inventory/balances" className="btn btn-primary d-inline-flex align-items-center gap-2">
-            <Package size={18} /> Manage Stock Balances
+          <Link to="/inventory/balances" className="btn btn-primary btn-sm px-3 py-2 rounded-3 d-inline-flex align-items-center gap-1.5 shadow-sm fw-medium">
+            <Package size={16} /> Manage Stock Balances
           </Link>
-          <Link to="/inventory/replenishment" className="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
-            <ShoppingCart size={18} /> Replenishment Planning
+          <Link to="/inventory/replenishment" className="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 d-inline-flex align-items-center gap-1.5 fw-medium">
+            <ShoppingCart size={16} /> Replenishment Planning
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards Row */}
       <div className="row g-3 mb-4">
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="text-muted small fw-semibold">Distinct SKUs</span>
-              <span className="p-2 rounded bg-primary bg-opacity-10 text-primary"><Package size={20} /></span>
-            </div>
-            <div className="fs-3 fw-bold text-dark">{totalSKUs} Items</div>
-            <div className="small text-muted mt-1">Across 3 regional hubs</div>
-          </div>
+          <MetricCard
+            title="Distinct SKUs"
+            value={`${totalSKUs} Items`}
+            subtitle="Across 3 regional hubs"
+            icon={Package}
+            color="primary"
+          />
         </div>
 
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="text-muted small fw-semibold">Inventory Valuation</span>
-              <span className="p-2 rounded bg-success bg-opacity-10 text-success"><DollarSign size={20} /></span>
-            </div>
-            <div className="fs-3 fw-bold text-success">${totalValuation.toFixed(2)}</div>
-            <div className="small text-muted mt-1">Total on-hand stock assets</div>
-          </div>
+          <MetricCard
+            title="Inventory Valuation"
+            value={`$${totalValuation.toFixed(2)}`}
+            subtitle="On-hand stock assets"
+            icon={DollarSign}
+            color="success"
+          />
         </div>
 
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="text-muted small fw-semibold">Low-Stock Warnings</span>
-              <span className="p-2 rounded bg-danger bg-opacity-10 text-danger"><AlertTriangle size={20} /></span>
-            </div>
-            <div className="fs-3 fw-bold text-danger">{lowStockAlerts.length} SKUs</div>
-            <div className="small text-danger mt-1">Below safety reorder point</div>
-          </div>
+          <MetricCard
+            title="Low-Stock Alerts"
+            value={`${lowStockAlerts.length} SKUs`}
+            subtitle="Below safety reorder point"
+            icon={AlertTriangle}
+            color="danger"
+          />
         </div>
 
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="text-muted small fw-semibold">Active Locations</span>
-              <span className="p-2 rounded bg-info bg-opacity-10 text-info"><MapPin size={20} /></span>
-            </div>
-            <div className="fs-3 fw-bold text-dark">{locations.length || 3} Hubs</div>
-            <div className="small text-muted mt-1">Central, North &amp; South</div>
-          </div>
+          <MetricCard
+            title="Active Locations"
+            value={`${locations.length || 3} Hubs`}
+            subtitle="Central, North & South"
+            icon={MapPin}
+            color="info"
+          />
         </div>
       </div>
 
-      {/* Warehouses Summary Grid */}
-      <h5 className="fw-bold mb-3">Regional Fulfillment Warehouses</h5>
-      <div className="row g-3 mb-4">
-        {locations.map((loc) => {
-          const locBalances = balances.filter((b) => b.locationCode === loc.locationCode);
-          const totalUnits = locBalances.reduce((acc, b) => acc + parseFloat(b.quantityOnHand || 0), 0);
-          return (
-            <div key={loc.id} className="col-12 col-md-4">
-              <div className="card border-0 shadow-sm rounded-4 p-3 bg-light h-100">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <span className="badge bg-secondary">{loc.locationCode}</span>
-                  <span className="badge bg-success bg-opacity-10 text-success">Active Hub</span>
-                </div>
-                <h5 className="fw-bold mb-1">{loc.locationName}</h5>
-                <p className="text-muted small mb-2">{loc.address}</p>
-                <div className="mt-auto pt-2 border-top d-flex justify-content-between small text-muted">
-                  <span>Stock Stored:</span>
-                  <strong className="text-dark">{totalUnits} units</strong>
+      {/* Regional Warehouses Grid */}
+      <div className="mb-4">
+        <h5 className="fw-bold text-dark mb-3" style={{ fontSize: '1.1rem' }}>
+          Regional Fulfillment Warehouses
+        </h5>
+        <div className="row g-3">
+          {locations.map((loc) => {
+            const locBalances = balances.filter((b) => b.locationCode === loc.locationCode);
+            const totalUnits = locBalances.reduce((acc, b) => acc + parseFloat(b.quantityOnHand || 0), 0);
+            return (
+              <div key={loc.id} className="col-12 col-md-4">
+                <div className="hc-card p-4 border-0 shadow-sm h-100 d-flex flex-column justify-content-between">
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <span className="badge bg-light text-primary font-monospace border">
+                        {loc.locationCode}
+                      </span>
+                      <span className="hc-badge hc-badge-success" style={{ fontSize: '0.72rem' }}>
+                        Active Hub
+                      </span>
+                    </div>
+                    <h6 className="fw-bold text-dark mb-1">{loc.locationName}</h6>
+                    <p className="text-secondary small mb-3">{loc.address}</p>
+                  </div>
+                  <div className="pt-2.5 border-top d-flex justify-content-between align-items-center small text-secondary">
+                    <span>Stock Stored:</span>
+                    <strong className="text-dark fs-6">{totalUnits} units</strong>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      {/* Recent Stock Movement Ledger */}
-      <div className="card border-0 shadow-sm rounded-4 p-4">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h5 className="fw-bold mb-0">Immutable Stock-Movement Ledger (Recent)</h5>
-          <Link to="/inventory/balances" className="small text-primary text-decoration-none">View All Balances</Link>
+      {/* Immutable Stock Movement Ledger */}
+      <div className="hc-card p-4 border-0 shadow-sm">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <h5 className="fw-bold text-dark mb-0" style={{ fontSize: '1.1rem' }}>
+              Immutable Stock-Movement Ledger
+            </h5>
+            <p className="text-secondary small mb-0 mt-0.5">
+              Audited transaction record of all reservations, goods receipts, and technician consumptions
+            </p>
+          </div>
+          <Link to="/inventory/balances" className="small text-primary fw-medium text-decoration-none">
+            View All Balances →
+          </Link>
         </div>
-        <p className="text-muted small mb-3">Every reservation, goods receipt, consumption, and adjustment is recorded with audit trail.</p>
 
-        <div className="table-responsive">
+        <div className="table-responsive mt-3">
           <table className="table table-hover align-middle mb-0">
-            <thead className="table-light">
+            <thead className="table-light text-secondary small">
               <tr>
                 <th className="ps-3">Timestamp</th>
                 <th>Type</th>
@@ -158,30 +185,32 @@ export default function InventoryDashboard() {
                 <th className="pe-3">Reason</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="small">
               {movements.slice(0, 8).map((m) => (
                 <tr key={m.id}>
-                  <td className="ps-3 small text-muted">{new Date(m.timestamp).toLocaleString()}</td>
+                  <td className="ps-3 text-secondary" style={{ fontSize: '0.76rem' }}>
+                    {new Date(m.timestamp).toLocaleString()}
+                  </td>
                   <td>
-                    <span className={`badge ${
+                    <span className={`badge px-2 py-0.5 ${
                       m.movementType === 'GOODS_RECEIPT'
-                        ? 'bg-success'
+                        ? 'bg-success bg-opacity-15 text-success'
                         : m.movementType === 'RESERVATION'
-                        ? 'bg-warning text-dark'
+                        ? 'bg-warning bg-opacity-20 text-dark'
                         : m.movementType === 'CONSUMPTION'
-                        ? 'bg-primary'
-                        : 'bg-secondary'
-                    }`}>
+                        ? 'bg-primary bg-opacity-15 text-primary'
+                        : 'bg-light text-secondary border'
+                    }`} style={{ fontSize: '0.72rem' }}>
                       {m.movementType}
                     </span>
                   </td>
                   <td className="fw-semibold text-dark">{m.itemName}</td>
-                  <td><span className="badge bg-light text-dark border">{m.locationCode}</span></td>
+                  <td><span className="badge bg-light text-dark border font-monospace">{m.locationCode}</span></td>
                   <td className={`fw-bold ${parseFloat(m.quantity) > 0 ? 'text-success' : 'text-danger'}`}>
                     {parseFloat(m.quantity) > 0 ? `+${m.quantity}` : m.quantity}
                   </td>
-                  <td className="small text-muted">{m.referenceNumber}</td>
-                  <td className="pe-3 small text-muted">{m.reason}</td>
+                  <td className="font-monospace text-secondary" style={{ fontSize: '0.75rem' }}>{m.referenceNumber}</td>
+                  <td className="pe-3 text-secondary" style={{ fontSize: '0.76rem' }}>{m.reason}</td>
                 </tr>
               ))}
             </tbody>

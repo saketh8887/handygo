@@ -1,5 +1,6 @@
 package com.handyconnect.servicecatalog;
 
+import com.handyconnect.team.ServiceTeam;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,6 +16,10 @@ public class ServiceEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private ServiceCategory category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private ServiceTeam team;
 
     @Column(nullable = false, length = 150)
     private String name;
@@ -33,6 +38,9 @@ public class ServiceEntity {
 
     @Column(name = "required_skills", columnDefinition = "TEXT")
     private String requiredSkills;
+
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<ServiceRequiredSkill> requiredSkillList = new java.util.ArrayList<>();
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
@@ -141,7 +149,19 @@ public class ServiceEntity {
         return updatedAt;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    public java.util.List<ServiceRequiredSkill> getRequiredSkillList() {
+        return requiredSkillList;
+    }
+
+    public void setRequiredSkillList(java.util.List<ServiceRequiredSkill> requiredSkillList) {
+        this.requiredSkillList = requiredSkillList;
+    }
+
+    public ServiceTeam getTeam() {
+        return team;
+    }
+
+    public void setTeam(ServiceTeam team) {
+        this.team = team;
     }
 }

@@ -59,6 +59,8 @@ public class DataInitializer implements CommandLineRunner {
                 "customer@handyconnect.local",
                 "handyman1@handyconnect.local",
                 "handyman2@handyconnect.local",
+                "handyman3@handyconnect.local",
+                "handyman4@handyconnect.local",
                 "inventory@handyconnect.local",
                 "supplier@handyconnect.local"
         };

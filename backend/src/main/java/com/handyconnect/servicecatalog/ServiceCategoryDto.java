@@ -1,5 +1,8 @@
 package com.handyconnect.servicecatalog;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ServiceCategoryDto {
     private Long id;
     private String name;
@@ -8,6 +11,13 @@ public class ServiceCategoryDto {
     private String iconName;
     private Boolean isActive;
     private Integer displayOrder;
+
+    // Enhanced metrics & example services
+    private Long qualifiedHandymenCount = 0L;
+    private Long servicesCount = 0L;
+    private List<String> exampleServices = new ArrayList<>();
+    private Long pendingBookingsCount = 0L;
+    private Long completedBookingsCount = 0L;
 
     public ServiceCategoryDto() {}
 
@@ -75,5 +85,45 @@ public class ServiceCategoryDto {
 
     public void setDisplayOrder(Integer displayOrder) {
         this.displayOrder = displayOrder;
+    }
+
+    public Long getQualifiedHandymenCount() {
+        return qualifiedHandymenCount;
+    }
+
+    public void setQualifiedHandymenCount(Long qualifiedHandymenCount) {
+        this.qualifiedHandymenCount = qualifiedHandymenCount;
+    }
+
+    public Long getServicesCount() {
+        return servicesCount;
+    }
+
+    public void setServicesCount(Long servicesCount) {
+        this.servicesCount = servicesCount;
+    }
+
+    public List<String> getExampleServices() {
+        return exampleServices;
+    }
+
+    public void setExampleServices(List<String> exampleServices) {
+        this.exampleServices = exampleServices;
+    }
+
+    public Long getPendingBookingsCount() {
+        return pendingBookingsCount;
+    }
+
+    public void setPendingBookingsCount(Long pendingBookingsCount) {
+        this.pendingBookingsCount = pendingBookingsCount;
+    }
+
+    public Long getCompletedBookingsCount() {
+        return completedBookingsCount;
+    }
+
+    public void setCompletedBookingsCount(Long completedBookingsCount) {
+        this.completedBookingsCount = completedBookingsCount;
     }
 }
