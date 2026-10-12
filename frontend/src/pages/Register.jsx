@@ -81,7 +81,15 @@ export default function Register() {
       }, 1000);
     } catch (err) {
       console.error('Registration error:', err);
-      const msg = err.response?.data?.message || 'Failed to create account. Please check your inputs.';
+      let msg = 'Failed to create account. Please check your inputs.';
+      if (!err.response) {
+        msg = 'Unable to reach backend server. If using Render free tier, please wait ~30-50 seconds for the service to wake up and try again.';
+      } else if (err.response.data?.validationErrors) {
+        const fieldErrors = Object.values(err.response.data.validationErrors).join('. ');
+        msg = fieldErrors || err.response.data.message || msg;
+      } else if (err.response.data?.message) {
+        msg = err.response.data.message;
+      }
       setError(msg);
     } finally {
       setLoading(false);
