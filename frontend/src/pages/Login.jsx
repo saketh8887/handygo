@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { 
   LogIn, Key, Mail, AlertCircle, CheckCircle2, UserCheck, 
-  Shield, Wrench, Package, Truck, ArrowRight, Sparkles, Eye, EyeOff 
+  Shield, Wrench, Package, Truck, ArrowRight, Sparkles, Eye, EyeOff, Wifi, WifiOff 
 } from 'lucide-react';
 
 export default function Login() {
@@ -13,12 +13,47 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // 'checking' | 'waking' | 'online' | 'offline'
+  const [serverStatus, setServerStatus] = useState('checking');
+  const wakeRetryRef = useRef(null);
   const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const isExpired = searchParams.get('expired') === 'true';
+
+  // ── Wake-up ping: silently hit /actuator/health on page load ──────────────
+  useEffect(() => {
+    const apiBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+    const healthUrl = apiBase ? `${apiBase}/actuator/health` : '/actuator/health';
+    let attempts = 0;
+    const MAX_ATTEMPTS = 18; // 18 × 5s = 90s
+
+    const ping = async () => {
+      attempts++;
+      try {
+        const res = await fetch(healthUrl, { method: 'GET', signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          setServerStatus('online');
+          return; // ✅ backend is awake – stop retrying
+        }
+      } catch (_) { /* network error or timeout = still sleeping */ }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        setServerStatus('offline');
+      } else {
+        setServerStatus('waking');
+        wakeRetryRef.current = setTimeout(ping, 5000);
+      }
+    };
+
+    ping();
+
+    return () => {
+      if (wakeRetryRef.current) clearTimeout(wakeRetryRef.current);
+    };
+  }, []);
 
   const demoAccounts = [
     {
@@ -78,13 +113,35 @@ export default function Login() {
     }
   };
 
+  // ── Auto-retry login while backend is waking up ───────────────────────────
+  const loginWithRetry = async (emailVal, passVal) => {
+    const MAX_RETRY_ATTEMPTS = 10;
+    const RETRY_INTERVAL_MS = 6000;
+    let attempt = 0;
+
+    while (attempt < MAX_RETRY_ATTEMPTS) {
+      try {
+        const user = await login(emailVal, passVal);
+        return user; // ✅ success
+      } catch (err) {
+        // Only retry on network errors (backend sleeping), not on 401/403/etc.
+        if (err.response) throw err; // real HTTP error – don't retry
+        if (err.message === 'BACKEND_URL_MISSING') throw err;
+        attempt++;
+        if (attempt >= MAX_RETRY_ATTEMPTS) throw err;
+        setError(`⏳ Server is waking up… retrying in ${RETRY_INTERVAL_MS / 1000}s (attempt ${attempt}/${MAX_RETRY_ATTEMPTS})`);
+        await new Promise(r => setTimeout(r, RETRY_INTERVAL_MS));
+      }
+    }
+  };
+
   const handleLoginError = (err) => {
     console.error('Login error:', err);
     let msg = 'Invalid email or password. Demo account password is: Password123!';
     if (err.message === 'BACKEND_URL_MISSING') {
       msg = 'Backend URL is not configured. In Vercel, add environment variable VITE_API_URL = https://<your-render-service>.onrender.com (no trailing slash), then redeploy.';
     } else if (!err.response) {
-      msg = 'Unable to reach backend server. If using Render free tier, the server may take ~30-50 seconds to wake up from idle. Please wait and retry.';
+      msg = 'Could not reach the backend server after multiple retries. Please refresh the page and try again in a minute.';
     } else if (err.response.status === 401) {
       msg = 'Invalid email or password. Demo account password is: Password123!';
     } else if (err.response.status === 404) {
@@ -109,7 +166,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const user = await login(acc.email, acc.pass);
+      const user = await loginWithRetry(acc.email, acc.pass);
       showToast(`Welcome back, ${user.fullName || user.email}!`, 'success');
       redirectUser(user);
     } catch (err) {
@@ -125,7 +182,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const user = await login(email, password);
+      const user = await loginWithRetry(email, password);
       showToast(`Welcome back, ${user.fullName || user.email}!`, 'success');
       redirectUser(user);
     } catch (err) {
@@ -160,6 +217,36 @@ export default function Login() {
                 Log in to access your bookings, dispatch board, or warehouse portal
               </p>
             </div>
+
+            {/* Server Status Banner */}
+            {serverStatus === 'checking' && (
+              <div className="alert border-0 mb-3 py-2 px-3 rounded-3 d-flex align-items-center gap-2"
+                style={{ backgroundColor: '#f0f4ff', color: '#4b5bab', fontSize: '0.8rem' }}>
+                <span className="spinner-border spinner-border-sm" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                <span>Connecting to backend server…</span>
+              </div>
+            )}
+            {serverStatus === 'waking' && (
+              <div className="alert border-0 mb-3 py-2 px-3 rounded-3 d-flex align-items-center gap-2"
+                style={{ backgroundColor: '#fff8e6', color: '#8a6200', fontSize: '0.8rem' }}>
+                <span className="spinner-border spinner-border-sm" style={{ width: 12, height: 12, borderWidth: 2, color: '#f59e0b' }} />
+                <span>⏳ Server is waking up (Render free tier). This takes ~30–60s. <strong>Login will work automatically once ready.</strong></span>
+              </div>
+            )}
+            {serverStatus === 'online' && (
+              <div className="alert border-0 mb-3 py-2 px-3 rounded-3 d-flex align-items-center gap-2"
+                style={{ backgroundColor: '#f0fdf4', color: '#166534', fontSize: '0.8rem' }}>
+                <Wifi size={13} />
+                <span>Backend server is online. Ready to log in!</span>
+              </div>
+            )}
+            {serverStatus === 'offline' && (
+              <div className="alert border-0 mb-3 py-2 px-3 rounded-3 d-flex align-items-center gap-2"
+                style={{ backgroundColor: '#fff0f0', color: '#991b1b', fontSize: '0.8rem' }}>
+                <WifiOff size={13} />
+                <span>Backend server is not responding. Try refreshing the page in ~1 minute.</span>
+              </div>
+            )}
 
             {isExpired && (
               <div className="alert alert-warning small rounded-3 border-0 mb-4 d-flex align-items-center gap-2">
@@ -230,7 +317,7 @@ export default function Login() {
                 {loading ? (
                   <>
                     <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                    <span>Signing In...</span>
+                    <span>{serverStatus !== 'online' ? 'Waking up server…' : 'Signing In...'}</span>
                   </>
                 ) : (
                   <>
