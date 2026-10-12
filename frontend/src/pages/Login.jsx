@@ -185,6 +185,7 @@ export default function Login() {
                     placeholder="name@handyconnect.local"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -203,6 +204,7 @@ export default function Login() {
                     placeholder="Password123!"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
                     required
                   />
                   <button
