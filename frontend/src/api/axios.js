@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// Strip any trailing slashes from VITE_API_URL to prevent double-slash URLs
+// e.g. "https://backend.onrender.com/" -> "https://backend.onrender.com/api/v1"
+const _rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || ''}/api/v1`,
+  baseURL: `${_rawBase}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
   },

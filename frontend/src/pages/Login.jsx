@@ -80,8 +80,10 @@ export default function Login() {
 
   const handleLoginError = (err) => {
     console.error('Login error:', err);
-    let msg = 'Invalid email or password. Please verify the demo password is: Password123!';
-    if (!err.response) {
+    let msg = 'Invalid email or password. Demo account password is: Password123!';
+    if (err.message === 'BACKEND_URL_MISSING') {
+      msg = 'Backend URL is not configured. In Vercel, add environment variable VITE_API_URL = https://<your-render-service>.onrender.com (no trailing slash), then redeploy.';
+    } else if (!err.response) {
       msg = 'Unable to reach backend server. If using Render free tier, the server may take ~30-50 seconds to wake up from idle. Please wait and retry.';
     } else if (err.response.status === 401) {
       msg = 'Invalid email or password. Demo account password is: Password123!';

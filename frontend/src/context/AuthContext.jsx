@@ -32,6 +32,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
+    // Guard: if VITE_API_URL is unset Vercel returns the HTML page instead of JSON
+    if (typeof res.data === 'string' && res.data.trim().startsWith('<!')) {
+      throw new Error('BACKEND_URL_MISSING');
+    }
     if (res.data && res.data.data) {
       const { token: jwtToken, user: userData } = res.data.data;
       localStorage.setItem('token', jwtToken);
